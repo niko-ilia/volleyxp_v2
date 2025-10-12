@@ -1,0 +1,43 @@
+{
+  "name": "volleyxp-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [
+    "volleyball",
+    "match",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Backend API for volleyball match management app",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0",
+    "form-data": "^4.0.3",
+    "jsonwebtoken": "^9.0.2",
+    "mailgun.js": "^12.0.3",
+    "mongoose": "^8.16.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "jest": "^29.0.0",
+    "mongodb-memory-server": "^10.1.4",
+    "nodemon": "^3.0.0",
+    "supertest": "^7.1.3"
+  }
+}

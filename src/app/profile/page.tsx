@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [page, setPage] = React.useState(1);
   const PAGE_SIZE = 5;
   const [statsByMatchId, setStatsByMatchId] = React.useState<Record<string, { wins: number; losses: number }>>({});
+  const [historyLoaded, setHistoryLoaded] = React.useState(false);
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
 
@@ -67,6 +68,44 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
+  }, [user]);
+
+  React.useEffect(() => {
+    // Prefer compact user history to compute stats in one request
+    let cancelled = false;
+    async function loadHistory() {
+      try {
+        const res = await authFetchWithRetry('/api/users/match-history');
+        if (!res.ok) throw new Error('Failed to load history');
+        const items = await res.json();
+        if (cancelled) return;
+        // Build per-match stats map and overall summary using finished items only
+        const per: Record<string, { wins: number; losses: number }> = {};
+        let wins = 0, losses = 0, total = 0;
+        if (Array.isArray(items)) {
+          for (const it of items) {
+            if (!it?.matchId) continue;
+            // считаем только завершённые
+            const isFinished = it?.status === 'finished' || (typeof it?.wins === 'number' || typeof it?.losses === 'number');
+            if (isFinished) {
+              total += 1;
+              const w = Number(it?.wins ?? 0);
+              const l = Number(it?.losses ?? 0);
+              per[it.matchId] = { wins: w, losses: l };
+              if (w > l) wins += 1; else if (l > w) losses += 1;
+            }
+          }
+        }
+        setStatsByMatchId(prev => ({ ...per, ...prev }));
+        setStatsSummary({ total, wins, losses, winPct: total ? wins / total : 0 });
+      } catch (_) {
+        // ignore — fallback to per-match stats loader below
+      } finally {
+        if (!cancelled) setHistoryLoaded(true);
+      }
+    }
+    if (user) loadHistory();
+    return () => { cancelled = true; };
   }, [user]);
 
   React.useEffect(() => {
@@ -107,6 +146,7 @@ export default function ProfilePage() {
   // Load result stats for visible page matches
   React.useEffect(() => {
     if (!matches || !user) return;
+    if (historyLoaded) return; // уже получили из user history — не дёргаем per-match
     const uid = (user && (user._id || (user as any).id)) || null;
     let cancelled = false;
     const list = matches as any[]; // snapshot non-null value for TS
@@ -137,6 +177,7 @@ export default function ProfilePage() {
   // Compute full summary across all finished matches
   React.useEffect(() => {
     if (!matches || !user) return;
+    if (historyLoaded) return; // summary уже вычислен из history
     let cancelled = false;
     const uid = (user && (user._id || (user as any).id)) || null;
     const list = matches as any[]; // capture non-null value for TS

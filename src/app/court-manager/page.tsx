@@ -22,8 +22,8 @@ export default function CourtManagerPage() {
 
   const [courts, setCourts] = useState<CourtRef[]>([]);
   const [courtId, setCourtId] = useState<string>("");
-  const [from, setFrom] = useState<string>(() => new Date(new Date().setHours(0,0,0,0)).toISOString());
-  const [to, setTo] = useState<string>(() => new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString());
+  const [from, setFrom] = useState<string>(() => formatLocalYmd(new Date()));
+  const [to, setTo] = useState<string>(() => formatLocalYmd(new Date(Date.now() + 2 * 24 * 3600 * 1000)));
   const [schedule, setSchedule] = useState<ScheduleRes | null>(null);
   const [creating, setCreating] = useState<{ date: string; time: string; durationMin: number; note: string; userSearch: string; pick: { _id: string } | null }>({ date: "", time: "00:00", durationMin: 60, note: "", userSearch: "", pick: null });
 
@@ -40,7 +40,10 @@ export default function CourtManagerPage() {
 
   async function loadSchedule(id = courtId) {
     if (!id) return;
-    const params = new URLSearchParams({ from, to });
+    const params = new URLSearchParams({
+      from: startOfDayIso(from),
+      to: startOfDayIso(to),
+    });
     const r = await authFetchWithRetry(`/api/admin/courts/${id}/schedule?${params.toString()}`);
     if (r.ok) setSchedule(await r.json());
   }
@@ -64,8 +67,8 @@ export default function CourtManagerPage() {
             {courts.map(c => <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <DatePicker value={new Date(from)} onChange={(d) => setFrom((d ?? new Date()).toISOString())} />
-        <DatePicker value={new Date(to)} onChange={(d) => setTo((d ?? new Date()).toISOString())} />
+        <DatePicker value={parseLocalYmd(from)} onChange={(d) => setFrom(d ? formatLocalYmd(d) : formatLocalYmd(new Date()))} />
+        <DatePicker value={parseLocalYmd(to)} onChange={(d) => setTo(d ? formatLocalYmd(d) : formatLocalYmd(new Date()))} />
         <Button onClick={() => loadSchedule()}>Обновить</Button>
       </div>
 
@@ -190,4 +193,27 @@ function fmt(s?: string) {
   return d.toLocaleString();
 }
 
+
+function formatLocalYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseLocalYmd(ymd: string | null | undefined): Date | null {
+  if (!ymd) return null;
+  const parts = ymd.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return null;
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  dt.setHours(0, 0, 0, 0);
+  return dt;
+}
+
+function startOfDayIso(ymd: string): string {
+  const d = parseLocalYmd(ymd) ?? new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
 

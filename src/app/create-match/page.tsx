@@ -92,9 +92,10 @@ export default function CreateMatchPage() {
       if (!date) throw new Error("Date required");
       if (!startTime) throw new Error("Start time required");
       const [h, m] = startTime.split(":").map(Number);
-      const dt = new Date(date);
-      dt.setHours(h, m ?? 0, 0, 0);
-      const startDateTime = dt.toISOString();
+      const localDate = parseLocalYmd(date);
+      if (!localDate) throw new Error("Invalid date");
+      localDate.setHours(h, m ?? 0, 0, 0);
+      const startDateTime = localDate.toISOString();
 
       const body: Record<string, unknown> = {
         title: title.trim(),
@@ -128,7 +129,9 @@ export default function CreateMatchPage() {
         creator: created.creator,
       });
       const url = `/match/${created._id}`;
-      setShareText(msg + "\n\n" + (typeof window !== "undefined" ? window.location.origin + url : url));
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const originNoWww = origin.replace("://www.", "://");
+      setShareText(msg + "\n\n" + ((originNoWww ? originNoWww : "") + url));
       setShareUrl(url);
       setShareOpen(true);
     } catch (e) {
@@ -152,8 +155,8 @@ export default function CreateMatchPage() {
           <div className="space-y-2">
             <Label htmlFor="date">Date</Label>
             <div className="min-w-0"><DatePicker
-              value={date ? new Date(date) : null}
-              onChange={(d) => setDate(d ? d.toISOString().slice(0, 10) : "")}
+              value={date ? parseLocalYmd(date) : null}
+              onChange={(d) => setDate(d ? formatLocalYmd(d) : "")}
             /></div>
           </div>
           <div className="space-y-2">
@@ -277,6 +280,24 @@ export default function CreateMatchPage() {
 
 async function safeJson(res: Response) {
   try { return await res.json(); } catch { return null as unknown; }
+}
+
+
+function formatLocalYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function parseLocalYmd(ymd: string): Date | null {
+  if (!ymd) return null;
+  const parts = ymd.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return null;
+  const [y, m, d] = parts;
+  const dt = new Date(y, (m - 1), d);
+  dt.setHours(0, 0, 0, 0);
+  return dt;
 }
 
 

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 type MatchItem = {
   _id: string;
@@ -101,10 +102,26 @@ export default function MatchesPage() {
                           if (r.ok) load();
                         }}>Отменить</Button>
                       )}
-                      <Button size="sm" variant="destructive" onClick={async () => {
-                        const r = await authFetchWithRetry(`/api/admin/matches/${m._id}`, { method: "DELETE" });
-                        if (r.ok) load();
-                      }}>Удалить</Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive">Удалить</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Удалить матч?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Это действие необратимо. Матч будет удалён без возможности восстановления.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Отмена</AlertDialogCancel>
+                            <AlertDialogAction onClick={async () => {
+                              const r = await authFetchWithRetry(`/api/admin/matches/${m._id}`, { method: "DELETE" });
+                              if (r.ok) load();
+                            }}>Удалить</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   ) : (
                     <span className="text-xs text-muted-foreground">read‑only</span>

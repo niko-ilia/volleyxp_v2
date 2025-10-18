@@ -78,7 +78,9 @@ export default function MatchPage() {
       participants: match.participants,
       creator: match.creator,
     });
-    const url = (typeof window !== "undefined" ? window.location.origin : "") + `/match/${match._id}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const originNoWww = origin.replace("://www.", "://");
+    const url = `${originNoWww}/match/${match._id}`;
     return msg + "\n\n" + url;
   }, [match]);
 
@@ -230,16 +232,29 @@ export default function MatchPage() {
 
   async function cancelMatch() {
     if (!match) return;
+    const start = new Date(match.startDateTime);
+    const end = new Date(start.getTime() + match.duration * 60000);
+    const now = new Date();
+    const hasResult = !!result;
+    const canCancelBeforeStart = now < start && !hasResult;
+    const canDelete = now < start && hasResult; // unlikely, but keep semantics
+    const canCancelAfterEnd = now > end && !hasResult && (now.getTime() - end.getTime() <= 48 * 60 * 60 * 1000);
+    const action = canCancelBeforeStart ? "cancel" : canDelete ? "delete" : canCancelAfterEnd ? "cancel" : null;
+    if (!action) {
+      alert("Cannot cancel/delete: match not finished or window expired");
+      return;
+    }
     const res = await authFetchWithRetry(`/api/matches/${match._id}`, {
       method: "PATCH",
-      body: JSON.stringify({ action: "cancel" })
+      body: JSON.stringify({ action })
     });
     if (!res.ok) {
       const err = await safeJson(res);
       alert(err?.message || `Error ${res.status}`);
       return;
     }
-    setMatch({ ...match, status: "cancelled" });
+    if (action === "delete") router.replace("/");
+    else setMatch({ ...match, status: "cancelled" });
   }
 
   async function confirmMatchResult() {
@@ -358,6 +373,15 @@ export default function MatchPage() {
   const isUserParticipant = !!user && Array.isArray(match.participants) && match.participants.some(p => p._id === (user._id || (user as any).id));
   const isResultConfirmed = !!result?.isConfirmed;
   const canAddResults = participantsCount >= 4 && isUserParticipant && !isResultConfirmed && match.status !== 'cancelled';
+  const start = new Date(match.startDateTime);
+  const end = new Date(start.getTime() + match.duration * 60000);
+  const now = new Date();
+  const hasResult = !!result;
+  const canCancelBeforeStart = now < start && !hasResult;
+  const canDelete = now < start && hasResult;
+  const canCancelAfterEnd = now > end && !hasResult && (now.getTime() - end.getTime() <= 48 * 60 * 60 * 1000);
+  const cancelAction = canCancelBeforeStart ? 'cancel' : canDelete ? 'delete' : canCancelAfterEnd ? 'cancel' : null;
+  const cancelLabel = canDelete ? 'Delete match' : 'Cancel match';
 
   return (
     <div className="mx-auto w-full max-w-3xl p-6 space-y-6">
@@ -381,7 +405,7 @@ export default function MatchPage() {
           <div className="flex items-center gap-2 pt-2">
             <Button onClick={leaveMatch}>Leave match</Button>
             {(user && match.creator?._id && (user._id || user.id) === match.creator._id && match.status !== 'cancelled') && (
-              <Button variant="destructive" onClick={cancelMatch}>Cancel match</Button>
+              <Button variant="destructive" onClick={cancelMatch} disabled={!cancelAction}>{cancelLabel}</Button>
             )}
             {canAddResults && (
               <Button onClick={openAddResults} className="shadow">Add result</Button>

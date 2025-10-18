@@ -31,10 +31,16 @@ export function buildShareMessage(m: ShareBuildInput) {
   lines.push(`📍 ${m.place}`);
   lines.push(`${m.isPrivate ? "🔒 Private" : "🌐 Public"}`);
   lines.push(`🎯 Player Level: ${m.level}`);
-  const names = (m.participants || [])
-    .map((p: any) => (typeof p === "string" ? p : p?.name))
-    .filter(Boolean);
-  if (names.length) lines.push(`✅ ${names[0]}`);
+  const names = Array.from(
+    new Set(
+      (m.participants || [])
+        .map((p: any) => (typeof p === "string" ? p : (p?.name || p?.email)))
+        .filter(Boolean)
+    )
+  );
+  // List all current players, one per line
+  for (const n of names) lines.push(`✅ ${n}`);
+  // Pad up to 6
   const empty = Math.max(0, 6 - names.length);
   for (let i = 0; i < empty; i++) lines.push("⚪ ??");
   return lines.join("\n");

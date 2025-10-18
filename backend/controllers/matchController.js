@@ -450,21 +450,26 @@ const updateMatch = async (req, res) => {
         }
       }
     } else if (action === 'cancel') {
-      // Можно отменить если матч завершён, нет результата, прошло не более 48ч
+      // Разрешаем:
+      // 1) До начала матча (always, если нет результата)
+      // 2) После конца матча, если нет результата и прошло ≤48ч
       if (match.status === 'cancelled') {
         return res.status(400).json({ code: 'ALREADY_CANCELLED' });
       }
+      const start = new Date(match.startDateTime);
       const end = new Date(match.startDateTime.getTime() + match.duration * 60000);
       const now = new Date();
-      if (now < end) {
-        return res.status(400).json({ code: 'MATCH_NOT_FINISHED' });
-      }
-      if ((now - end) > 48 * 60 * 60 * 1000) {
-        return res.status(400).json({ code: 'CANCEL_TOO_LATE' });
-      }
       const result = await Result.findOne({ match: match._id });
       if (result) {
         return res.status(400).json({ code: 'RESULT_EXISTS' });
+      }
+      // В процессе игры отменять нельзя
+      if (now >= start && now < end) {
+        return res.status(400).json({ code: 'MATCH_IN_PROGRESS' });
+      }
+      // Если уже закончился — ограничение 48 часов
+      if (now >= end && (now - end) > 48 * 60 * 60 * 1000) {
+        return res.status(400).json({ code: 'CANCEL_TOO_LATE' });
       }
       match.status = 'cancelled';
       await match.save();

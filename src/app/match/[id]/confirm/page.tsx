@@ -356,6 +356,9 @@ export default function ConfirmResultPage() {
                   <div className="text-lg font-semibold">{match.title || match.place || "Match"}</div>
                   <div className="text-sm text-muted-foreground">{subtitle}</div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => router.push(`/match/${matchId}`)}>Back to match</Button>
+                </div>
               </div>
             </div>
           ) : null}

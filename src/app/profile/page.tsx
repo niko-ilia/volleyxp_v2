@@ -107,8 +107,9 @@ export default function ProfilePage() {
     if (!matches || !user) return;
     const uid = (user && (user._id || (user as any).id)) || null;
     let cancelled = false;
+    const list = matches as any[]; // snapshot non-null value for TS
     async function loadStatsForPage() {
-      const slice = matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+      const slice = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
       await Promise.all(slice.map(async (m) => {
         if (!m?._id || statsByMatchId[m._id]) return;
         try {
@@ -132,8 +133,9 @@ export default function ProfilePage() {
     if (!matches || !user) return;
     let cancelled = false;
     const uid = (user && (user._id || (user as any).id)) || null;
+    const list = matches as any[]; // capture non-null value for TS
     async function computeSummary() {
-      const finished = matches.filter((m: any) => m?.status === 'finished');
+      const finished = list.filter((m: any) => m?.status === 'finished');
       let wins = 0; let losses = 0; const total = finished.length;
       // Fetch stats for those we don't have yet and aggregate
       await Promise.all(finished.map(async (m: any) => {

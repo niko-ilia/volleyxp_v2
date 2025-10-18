@@ -82,14 +82,14 @@ const updateUserRole = async (req, res) => {
     const allowed = ['player', 'court_admin', 'admin_view', 'super_admin'];
     if (roles) {
       if (!Array.isArray(roles) || roles.length === 0 || !roles.every(r => allowed.includes(r))) {
-        return res.status(400).json({ error: 'Некорректные роли', code: 'INVALID_ROLES' });
+        return res.status(400).json({ error: 'Invalid roles', code: 'INVALID_ROLES' });
       }
     } else if (role) {
       if (!allowed.includes(role)) {
-        return res.status(400).json({ error: 'Некорректная роль', code: 'INVALID_ROLE' });
+        return res.status(400).json({ error: 'Invalid role', code: 'INVALID_ROLE' });
       }
     } else {
-      return res.status(400).json({ error: 'Роль(и) не переданы', code: 'ROLE_REQUIRED' });
+      return res.status(400).json({ error: 'Role(s) required', code: 'ROLE_REQUIRED' });
     }
 
     const user = await User.findById(req.params.id);
@@ -97,7 +97,7 @@ const updateUserRole = async (req, res) => {
       return res.status(404).json({ code: 'USER_NOT_FOUND' });
     }
 
-    // Нельзя изменить роль себе
+    // Cannot modify own role
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ code: 'CANNOT_MODIFY_SELF' });
     }
@@ -123,7 +123,7 @@ const updateUserRole = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Update user role error:', error);
-    res.status(500).json({ error: 'Ошибка сервера', code: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
   }
 };
 
@@ -137,12 +137,12 @@ const blockUser = async (req, res) => {
       return res.status(404).json({ code: 'USER_NOT_FOUND' });
     }
 
-    // Нельзя заблокировать себя
+    // Cannot block self
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ code: 'CANNOT_BLOCK_SELF' });
     }
 
-    // Нельзя заблокировать другого супер-админа
+    // Cannot block another super admin
     const roles = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : [user.role];
     if (roles.includes('super_admin')) {
       return res.status(400).json({ code: 'CANNOT_BLOCK_SUPER_ADMIN' });
@@ -150,7 +150,7 @@ const blockUser = async (req, res) => {
 
     user.isBlocked = true;
     if (reason) {
-      user.notes = (user.notes || '') + `\nБлокировка: ${reason} (${new Date().toISOString()})`;
+      user.notes = (user.notes || '') + `\nBlocked: ${reason} (${new Date().toISOString()})`;
     }
 
     await user.save();
@@ -171,7 +171,7 @@ const unblockUser = async (req, res) => {
     }
 
     user.isBlocked = false;
-    user.notes = (user.notes || '') + `\nРазблокировка (${new Date().toISOString()})`;
+    user.notes = (user.notes || '') + `\nUnblocked (${new Date().toISOString()})`;
 
     await user.save();
 
@@ -190,12 +190,12 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ code: 'USER_NOT_FOUND' });
     }
 
-    // Нельзя удалить себя
+    // Cannot delete self
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ code: 'CANNOT_DELETE_SELF' });
     }
 
-    // Нельзя удалить другого супер-админа
+    // Cannot delete another super admin
     const roles = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : [user.role];
     if (roles.includes('super_admin')) {
       return res.status(400).json({ code: 'CANNOT_DELETE_SUPER_ADMIN' });
@@ -207,7 +207,7 @@ const deleteUser = async (req, res) => {
       { $pull: { participants: user._id } }
     );
 
-    // Отменяем матчи, где пользователь был создателем
+    // Cancel matches where the user was the creator
     await Match.updateMany(
       { creator: user._id },
       { status: 'cancelled' }
@@ -238,7 +238,7 @@ const resetUserPassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
-    user.notes = (user.notes || '') + `\nПароль сброшен админом (${new Date().toISOString()})`;
+    user.notes = (user.notes || '') + `\nPassword reset by admin (${new Date().toISOString()})`;
 
     await user.save();
 
@@ -269,10 +269,10 @@ const mergeUsers = async (req, res) => {
       return res.status(404).json({ code: 'USER_NOT_FOUND' });
     }
 
-    // Переносим данные из вторичного аккаунта в основной
+    // Move data from secondary account to primary
     primaryUser.ratingHistory = [...primaryUser.ratingHistory, ...secondaryUser.ratingHistory];
     
-    // Обновляем матчи
+    // Update matches
     await Match.updateMany(
       { creator: secondaryUser._id },
       { creator: primaryUser._id }
@@ -283,7 +283,7 @@ const mergeUsers = async (req, res) => {
       { $set: { 'participants.$': primaryUser._id } }
     );
 
-    // Удаляем вторичный аккаунт
+    // Delete secondary account
     await User.findByIdAndDelete(secondaryUserId);
 
     res.json({ message: 'Users merged successfully' });
@@ -306,7 +306,7 @@ const getUserStats = async (req, res) => {
     const matchesParticipated = participatedMatches.length;
     const resultsConfirmed = await Result.countDocuments({ confirmedBy: user._id });
 
-    // Агрегируем персональную статистику по всем подтвержденным результатам этих матчей
+    // Aggregate personal stats across all confirmed results of these matches
     let gamesPlayed = 0;
     let wins = 0;
     let losses = 0;
@@ -327,7 +327,7 @@ const getUserStats = async (req, res) => {
             const userWon = (inTeam1 && g.team1Score > g.team2Score) || (inTeam2 && g.team2Score > g.team1Score);
             if (userWon) wins++; else losses++;
 
-            // обновляем h2h против каждого оппонента из противоположной команды
+            // update h2h against each opponent from the opposite team
             const opponents = (inTeam1 ? g.team2 : g.team1) || [];
             for (const opp of opponents) {
               const oid = opp.toString();
@@ -483,7 +483,7 @@ const forceCancelMatch = async (req, res) => {
 
     match.status = 'cancelled';
     if (reason) {
-      match.description = (match.description || '') + `\n\nОтменен админом: ${reason}`;
+      match.description = (match.description || '') + `\n\nCancelled by admin: ${reason}`;
     }
 
     await match.save();
@@ -538,10 +538,10 @@ const getAnalyticsOverview = async (req, res) => {
     const totalMatches = await Match.countDocuments();
     const totalResults = await Result.countDocuments();
     
-    // Комбинированная активность за 30 дней
+    // Combined activity over the last 30 days
     const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
-    // Получаем ID пользователей с разными типами активности
+    // Get user IDs for different types of activity
     const matchParticipants = await Match.distinct('participants', { 
       startDateTime: { $gte: last30Days } 
     });
@@ -558,7 +558,7 @@ const getAnalyticsOverview = async (req, res) => {
         { _id: { $in: matchParticipants } },
         { _id: { $in: matchCreators } },
         { _id: { $in: resultConfirmers } },
-        { lastLoginAt: { $gte: last30Days } } // для обратной совместимости
+        { lastLoginAt: { $gte: last30Days } } // backwards compatibility
       ]
     });
 
@@ -608,7 +608,7 @@ const getAnalyticsOverview = async (req, res) => {
       }
     ]);
 
-    // Добавляем статусы с нулевым количеством
+    // Add statuses with zero counts
     const allStatuses = ['upcoming', 'finished', 'cancelled'];
     const statusMap = new Map(matchesByStatus.map(item => [item._id, item.count]));
     
@@ -617,7 +617,7 @@ const getAnalyticsOverview = async (req, res) => {
       count: statusMap.get(status) || 0
     }));
 
-    // Детальная статистика активности
+    // Detailed activity stats
     const activityDetails = {
       matchParticipants: matchParticipants.length,
       matchCreators: matchCreators.length,
@@ -640,7 +640,7 @@ const getAnalyticsOverview = async (req, res) => {
   }
 };
 
-// Аналитика пользователей
+// User analytics
 const getUserAnalytics = async (req, res) => {
   try {
     const registrationsByMonth = await User.aggregate([
@@ -680,7 +680,7 @@ const getUserAnalytics = async (req, res) => {
   }
 };
 
-// Аналитика матчей
+// Match analytics
 const getMatchAnalytics = async (req, res) => {
   try {
     const matchesByMonth = await Match.aggregate([
@@ -718,7 +718,7 @@ const getMatchAnalytics = async (req, res) => {
   }
 };
 
-// Аналитика активности
+// Activity analytics
 const getActivityAnalytics = async (req, res) => {
   try {
     const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -762,12 +762,12 @@ const getActivityAnalytics = async (req, res) => {
   }
 };
 
-// ===== СИСТЕМНЫЕ НАСТРОЙКИ =====
+// ===== SYSTEM SETTINGS =====
 
-// Получить системные настройки (заглушка)
+// Get system settings (stub)
 const getSystemSettings = async (req, res) => {
   try {
-    // В будущем можно создать отдельную модель Settings
+    // In the future we can create a separate Settings model
     const settings = {
       maxMatchDuration: 180,
       resultConfirmationHours: 24,
@@ -784,10 +784,10 @@ const getSystemSettings = async (req, res) => {
   }
 };
 
-// Обновить системные настройки (заглушка)
+// Update system settings (stub)
 const updateSystemSettings = async (req, res) => {
   try {
-    // В будущем здесь будет обновление настроек в БД
+    // In the future, update settings in DB
     const settings = req.body;
     
     res.json({ message: 'Settings updated successfully', settings });
@@ -797,16 +797,16 @@ const updateSystemSettings = async (req, res) => {
   }
 };
 
-// ===== ЭКСПОРТ ДАННЫХ =====
+// ===== DATA EXPORT =====
 
-// Экспорт пользователей
+// Export users
 const exportUsers = async (req, res) => {
   try {
     const users = await User.find({})
       .select('-password -resetPasswordToken')
       .lean();
 
-    // Преобразуем в CSV формат
+    // Convert to CSV-like format
     const csvData = users.map(user => ({
       id: user._id,
       name: user.name,
@@ -825,7 +825,7 @@ const exportUsers = async (req, res) => {
   }
 };
 
-// Экспорт матчей
+// Export matches
 const exportMatches = async (req, res) => {
   try {
     const matches = await Match.find({})

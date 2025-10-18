@@ -32,21 +32,21 @@ const updateProfile = async (req, res) => {
 
     if (name) user.name = name;
     if (email && email !== user.email) {
-      // Проверка на дубликат email (регистронезависимо)
+      // Check for duplicate email (case-insensitive)
       const existing = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
       if (existing) {
-        return res.status(400).json({ message: 'Email уже используется другим пользователем' });
+        return res.status(400).json({ message: 'Email is already used by another user' });
       }
       user.email = email;
       user.emailConfirmed = false;
-      // отправить письмо подтверждения
+      // send confirmation email
       const token = generateEmailToken(user);
       const confirmUrl = `${process.env.FRONTEND_URL || 'https://volleyxp.com'}/confirm-email?token=${token}`;
       await sendMail({
         to: user.email,
-        subject: 'Подтверждение email',
-        text: `Перейдите по ссылке для подтверждения: ${confirmUrl}`,
-        html: `<p>Перейдите по <a href='${confirmUrl}'>ссылке</a> для подтверждения email.</p>`
+        subject: 'Email confirmation',
+        text: `Follow the link to confirm your email: ${confirmUrl}`,
+        html: `<p>Please follow this <a href='${confirmUrl}'>link</a> to confirm your email.</p>`
       });
     }
 
@@ -98,14 +98,14 @@ const getProfile = async (req, res) => {
   }
 };
 
-// Публичный профиль пользователя (для просмотра другими игроками)
+// Public user profile (for viewing by other players)
 const getPublicProfile = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({
-        error: 'Пользователь не найден',
+        error: 'User not found',
         code: 'USER_NOT_FOUND'
       });
     }
@@ -122,13 +122,13 @@ const getPublicProfile = async (req, res) => {
   } catch (error) {
     console.error('❌ getPublicProfile error:', error);
     return res.status(500).json({
-      error: 'Внутренняя ошибка сервера',
+      error: 'Internal server error',
       code: 'SERVER_ERROR'
     });
   }
 };
 
-// Получить пользователя по email (для админских функций)
+// Get user by email (for admin functions)
 const getUserByEmail = async (req, res) => {
   try {
     const { email } = req.params;
@@ -146,21 +146,21 @@ const getUserByEmail = async (req, res) => {
   }
 };
 
-// Получить историю матчей пользователя по ratingHistory
+// Get user's match history by ratingHistory
 const getMatchHistory = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.ratingHistory || user.ratingHistory.length === 0) return res.json([]);
-    // Получаем все matchId из ratingHistory
+    // Collect all matchId from ratingHistory
     const matchIds = user.ratingHistory.map(rh => rh.matchId).filter(Boolean);
-    // Получаем матчи одним запросом
+    // Fetch matches in one query
     const matches = await Match.find({ _id: { $in: matchIds } }).populate('participants', 'name email');
     const now = new Date();
-    // Формируем ответ
+    // Build response
     const history = user.ratingHistory.map(rh => {
       const match = matches.find(m => m._id.toString() === rh.matchId?.toString());
-      // Подсчёт побед/ничьих/поражений
+      // Count wins/draws/losses
       let wins = 0, draws = 0, losses = 0;
       if (Array.isArray(rh.details)) {
         rh.details.forEach(game => {
@@ -169,24 +169,24 @@ const getMatchHistory = async (req, res) => {
           else if (game.score === 0) losses++;
         });
       }
-      // Форматированная дата для бейджа
+      // Formatted date for badge
       let badgeDate = '';
       if (match?.startDateTime) {
         const d = new Date(match.startDateTime);
-        badgeDate = isNaN(d) ? '' : d.toLocaleDateString('ru-RU');
+        badgeDate = isNaN(d) ? '' : d.toLocaleDateString('en-US');
       }
-      // Можно ли редактировать результат (если прошло <24ч и пользователь в participants)
+      // Can edit result (if <24h passed and user is in participants)
       let canEditResult = false;
       if (match?.startDateTime && Array.isArray(match.participants)) {
         const matchStart = new Date(match.startDateTime);
         const diffHours = (now - matchStart) / (1000 * 60 * 60);
         canEditResult = diffHours <= 24 && match.participants.some(p => p._id.toString() === user._id.toString());
       }
-      // Массив участников (id, name, email)
+      // Participants array (id, name, email)
       const participants = Array.isArray(match?.participants)
         ? match.participants.map(p => ({ id: p._id, name: p.name, email: p.email }))
         : [];
-      // Ссылки (пример: ссылка на матч)
+      // Links (e.g., match link)
       const links = {
         match: match ? `/match/${match._id}` : null
       };
@@ -216,14 +216,14 @@ const getMatchHistory = async (req, res) => {
   }
 };
 
-// Публичная история матчей по userId (маскируем email всех участников)
+// Public match history by userId (mask emails of all participants)
 const getMatchHistoryByUserId = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({
-        error: 'Пользователь не найден',
+        error: 'User not found',
         code: 'USER_NOT_FOUND'
       });
     }
@@ -248,7 +248,7 @@ const getMatchHistoryByUserId = async (req, res) => {
       let badgeDate = '';
       if (match?.startDateTime) {
         const d = new Date(match.startDateTime);
-        badgeDate = isNaN(d) ? '' : d.toLocaleDateString('ru-RU');
+        badgeDate = isNaN(d) ? '' : d.toLocaleDateString('en-US');
       }
       // В публичном представлении редактирование всегда недоступно
       const canEditResult = false;
@@ -283,7 +283,7 @@ const getMatchHistoryByUserId = async (req, res) => {
   } catch (error) {
     console.error('❌ getMatchHistoryByUserId error:', error);
     return res.status(500).json({
-      error: 'Внутренняя ошибка сервера',
+      error: 'Internal server error',
       code: 'SERVER_ERROR'
     });
   }

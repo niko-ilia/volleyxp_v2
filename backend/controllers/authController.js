@@ -29,14 +29,14 @@ const register = async (req, res) => {
 
     await user.save();
 
-    // Отправляем письмо подтверждения
+    // Send confirmation email
     const token = generateEmailToken(user);
     const confirmUrl = `${process.env.FRONTEND_URL || 'https://volleyxp.com'}/confirm-email?token=${token}`;
     await sendMail({
       to: user.email,
-      subject: 'Подтверждение email',
-      text: `Перейдите по ссылке для подтверждения: ${confirmUrl}`,
-      html: `<p>Перейдите по <a href='${confirmUrl}'>ссылке</a> для подтверждения email.</p>`
+      subject: 'Email confirmation',
+      text: `Follow the link to confirm your email: ${confirmUrl}`,
+      html: `<p>Please follow this <a href='${confirmUrl}'>link</a> to confirm your email.</p>`
     });
 
     // Создаем JWT токен
@@ -83,9 +83,9 @@ const login = async (req, res) => {
     const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (!user) {
       return res.status(400).json({
-        error: 'Неверный email или пароль',
+        error: 'Invalid email or password',
         code: 'INVALID_CREDENTIALS',
-        message: 'Неверный email или пароль'
+        message: 'Invalid email or password'
       });
     }
 
@@ -93,9 +93,9 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({
-        error: 'Неверный email или пароль',
+        error: 'Invalid email or password',
         code: 'INVALID_CREDENTIALS',
-        message: 'Неверный email или пароль'
+        message: 'Invalid email or password'
       });
     }
 
@@ -158,7 +158,7 @@ const getMe = async (req, res) => {
   }
 };
 
-// Генерация токена подтверждения email
+// Generate email confirmation token
 function generateEmailToken(user) {
   return jwt.sign(
     { userId: user._id, email: user.email },
@@ -176,13 +176,13 @@ const sendConfirmation = async (req, res) => {
     const confirmUrl = `${process.env.FRONTEND_URL || 'https://volleyxp.com'}/confirm-email?token=${token}`;
     await sendMail({
       to: user.email,
-      subject: 'Подтверждение email',
-      text: `Перейдите по ссылке для подтверждения: ${confirmUrl}`,
-      html: `<p>Перейдите по <a href='${confirmUrl}'>ссылке</a> для подтверждения email.</p>`
+      subject: 'Email confirmation',
+      text: `Follow the link to confirm your email: ${confirmUrl}`,
+      html: `<p>Please follow this <a href='${confirmUrl}'>link</a> to confirm your email.</p>`
     });
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ message: 'Ошибка отправки письма', error: e.message });
+    res.status(500).json({ message: 'Email sending error', error: e.message });
   }
 };
 
@@ -190,21 +190,21 @@ const sendConfirmation = async (req, res) => {
 const confirmEmail = async (req, res) => {
   try {
     const token = req.method === 'GET' ? req.query.token : req.body.token;
-    if (!token) return res.status(400).json({ message: 'Нет токена' });
+    if (!token) return res.status(400).json({ message: 'No token' });
     let payload;
     try {
       payload = jwt.verify(token, process.env.EMAIL_CONFIRM_SECRET || 'email_secret');
     } catch (e) {
-      return res.status(400).json({ message: 'Некорректный или просроченный токен' });
+      return res.status(400).json({ message: 'Invalid or expired token' });
     }
     const user = await User.findOne({ _id: payload.userId, email: payload.email });
-    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+    if (!user) return res.status(404).json({ message: 'User not found' });
     if (user.emailConfirmed) return res.json({ ok: true, alreadyConfirmed: true });
     user.emailConfirmed = true;
     await user.save();
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ message: 'Ошибка подтверждения', error: e.message });
+    res.status(500).json({ message: 'Confirmation error', error: e.message });
   }
 };
 
@@ -227,7 +227,7 @@ const requestPasswordReset = async (req, res) => {
     await sendPasswordResetMail({ to: user.email, resetUrl });
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ message: 'Ошибка отправки письма', error: e.message });
+    res.status(500).json({ message: 'Email sending error', error: e.message });
   }
 };
 

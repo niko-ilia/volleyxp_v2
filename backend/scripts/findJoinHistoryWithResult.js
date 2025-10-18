@@ -28,7 +28,7 @@ if (!uri) {
         byMatch[mId].push(rh);
       }
       for (const [matchId, arr] of Object.entries(byMatch)) {
-        const hasJoin = arr.some(rh => rh.comment?.includes('Матч без результата'));
+        const hasJoin = arr.some(rh => rh.comment?.includes('Match without result'));
         const hasResult = arr.some(rh => rh.comment?.includes('Индивидуальный расчёт'));
         if (hasJoin && hasResult) {
           found.push({ user, matchId, arr });

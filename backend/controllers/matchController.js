@@ -61,7 +61,7 @@ const createMatch = async (req, res) => {
         delta: 0,
         newRating: user.rating,
         matchId: match._id,
-        comment: 'Матч без результата',
+        comment: 'Match without result',
         details: [],
         joinRating: user.rating // сохраняем рейтинг на момент входа
       });
@@ -178,7 +178,7 @@ const joinMatch = async (req, res) => {
           delta: 0,
           newRating: user.rating,
           matchId: match._id,
-          comment: 'Матч без результата',
+          comment: 'Match without result',
           details: [],
           joinRating: user.rating // сохраняем рейтинг на момент входа
         });
@@ -263,7 +263,7 @@ const addPlayerToMatch = async (req, res) => {
           delta: 0,
           newRating: user.rating,
           matchId: match._id,
-          comment: 'Матч без результата',
+          comment: 'Match without result',
           details: [],
           joinRating: user.rating // сохраняем рейтинг на момент входа
         });

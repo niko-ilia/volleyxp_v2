@@ -5,6 +5,12 @@ export type AuthUser = {
   name: string;
   rating?: number;
   isEmailConfirmed?: boolean;
+  // Admin-related fields returned by /api/auth/me
+  role?: string; // legacy single role
+  roles?: string[]; // preferred array of roles
+  permissions?: string[];
+  managedCourts?: string[];
+  isBlocked?: boolean;
 };
 
 const TOKEN_KEY = "volley_token";

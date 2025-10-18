@@ -32,7 +32,7 @@ require('dotenv').config();
           delta: 0,
           newRating: user.rating,
           matchId: match._id,
-          comment: 'Матч без результата',
+          comment: 'Match without result',
           details: []
         });
         user.markModified('ratingHistory');

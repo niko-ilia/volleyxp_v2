@@ -61,7 +61,7 @@ exports.getManagedCourts = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting managed courts:', error);
-    res.status(500).json({ message: 'Ошибка при получении доступных кортов' });
+    res.status(500).json({ message: 'Error fetching managed courts' });
   }
 };
 
@@ -112,7 +112,7 @@ exports.getAllCourts = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting courts:', error);
-    res.status(500).json({ message: 'Ошибка при получении списка кортов' });
+    res.status(500).json({ message: 'Error fetching courts' });
   }
 };
 
@@ -123,13 +123,13 @@ exports.getCourtById = async (req, res) => {
       .populate('managerId ownerId', 'name email role');
     
     if (!court || court.isDeleted) {
-      return res.status(404).json({ message: 'Корт не найден' });
+      return res.status(404).json({ message: 'Court not found' });
     }
     
     res.json(court);
   } catch (error) {
     console.error('Error getting court:', error);
-    res.status(500).json({ message: 'Ошибка при получении корта' });
+    res.status(500).json({ message: 'Error fetching court' });
   }
 };
 
@@ -157,7 +157,7 @@ exports.createCourt = async (req, res) => {
     // Проверка обязательных полей
     if (!name || !address || !coordinates) {
       return res.status(400).json({ 
-        message: 'Название, адрес и координаты обязательны' 
+        message: 'Name, address and coordinates are required' 
       });
     }
     
@@ -165,20 +165,20 @@ exports.createCourt = async (req, res) => {
     if (managerId) {
       const manager = await User.findById(managerId);
       if (!manager) {
-        return res.status(400).json({ message: 'Менеджер не найден' });
+        return res.status(400).json({ message: 'Manager not found' });
       }
       if (!['court_manager', 'court_admin', 'super_admin'].includes(manager.role)) {
-        return res.status(400).json({ message: 'Пользователь не может быть менеджером корта' });
+        return res.status(400).json({ message: 'User cannot be a court manager' });
       }
     }
     // Проверка владельца, если указан
     if (ownerId) {
       const owner = await User.findById(ownerId);
       if (!owner) {
-        return res.status(400).json({ message: 'Владелец не найден' });
+        return res.status(400).json({ message: 'Owner not found' });
       }
       if (!['court_owner', 'court_admin', 'super_admin'].includes(owner.role)) {
-        return res.status(400).json({ message: 'Пользователь не может быть владельцем корта' });
+        return res.status(400).json({ message: 'User cannot be a court owner' });
       }
     }
     
@@ -187,7 +187,7 @@ exports.createCourt = async (req, res) => {
       const hasNewPrices = priceOneHourEUR !== undefined && priceTwoHoursEUR !== undefined;
       const hasLegacyPrice = price !== undefined;
       if (!hasNewPrices && !hasLegacyPrice) {
-        return res.status(400).json({ message: 'Для платного корта укажите стоимость за 1 и 2 часа в евро', code: 'COURT_PRICES_REQUIRED' });
+        return res.status(400).json({ message: 'For paid courts provide prices for 1 and 2 hours (EUR)', code: 'COURT_PRICES_REQUIRED' });
       }
     }
 
@@ -222,7 +222,7 @@ exports.createCourt = async (req, res) => {
     res.status(201).json(populatedCourt);
   } catch (error) {
     console.error('Error creating court:', error);
-    res.status(500).json({ message: 'Ошибка при создании корта' });
+    res.status(500).json({ message: 'Error creating court' });
   }
 };
 
@@ -232,7 +232,7 @@ exports.updateCourt = async (req, res) => {
     const court = await Court.findById(req.params.id);
     
     if (!court || court.isDeleted) {
-      return res.status(404).json({ message: 'Корт не найден' });
+      return res.status(404).json({ message: 'Court not found' });
     }
     
     const {
@@ -257,20 +257,20 @@ exports.updateCourt = async (req, res) => {
     if (managerId) {
       const manager = await User.findById(managerId);
       if (!manager) {
-        return res.status(400).json({ message: 'Менеджер не найден' });
+        return res.status(400).json({ message: 'Manager not found' });
       }
       if (!['court_manager', 'court_admin', 'super_admin'].includes(manager.role)) {
-        return res.status(400).json({ message: 'Пользователь не может быть менеджером корта' });
+        return res.status(400).json({ message: 'User cannot be a court manager' });
       }
     }
     // Проверка владельца, если указан
     if (ownerId) {
       const owner = await User.findById(ownerId);
       if (!owner) {
-        return res.status(400).json({ message: 'Владелец не найден' });
+        return res.status(400).json({ message: 'Owner not found' });
       }
       if (!['court_owner', 'court_admin', 'super_admin'].includes(owner.role)) {
-        return res.status(400).json({ message: 'Пользователь не может быть владельцем корта' });
+        return res.status(400).json({ message: 'User cannot be a court owner' });
       }
     }
     
@@ -309,7 +309,7 @@ exports.updateCourt = async (req, res) => {
     res.json(updatedCourt);
   } catch (error) {
     console.error('Error updating court:', error);
-    res.status(500).json({ message: 'Ошибка при обновлении корта' });
+    res.status(500).json({ message: 'Error updating court' });
   }
 };
 
@@ -319,7 +319,7 @@ exports.getSchedule = async (req, res) => {
     const { id } = req.params;
     const { from, to } = req.query;
     const court = await Court.findById(id);
-    if (!court || court.isDeleted) return res.status(404).json({ message: 'Корт не найден' });
+    if (!court || court.isDeleted) return res.status(404).json({ message: 'Court not found' });
     const fromDate = from ? new Date(from) : new Date();
     const toDate = to ? new Date(to) : new Date(Date.now() + 7 * 24 * 3600 * 1000);
     const reservations = await CourtReservation
@@ -344,7 +344,7 @@ exports.getSchedule = async (req, res) => {
     });
   } catch (e) {
     console.error('Error get schedule:', e);
-    res.status(500).json({ message: 'Ошибка получения расписания' });
+    res.status(500).json({ message: 'Error fetching schedule' });
   }
 };
 
@@ -353,12 +353,12 @@ exports.createReservation = async (req, res) => {
   try {
     const { id } = req.params;
     const { startDateTime, endDateTime, note, forUserId } = req.body;
-    if (!startDateTime || !endDateTime) return res.status(400).json({ message: 'Необходимо указать время' });
+    if (!startDateTime || !endDateTime) return res.status(400).json({ message: 'Start and end time are required' });
     const s = toDate(startDateTime); const e = toDate(endDateTime);
-    if (s >= e) return res.status(400).json({ code: 'INVALID_TIME_RANGE', message: 'Временной интервал некорректен' });
+    if (s >= e) return res.status(400).json({ code: 'INVALID_TIME_RANGE', message: 'Invalid time range' });
     const conflict = await hasReservationConflict(id, s, e);
     if (conflict.conflict) {
-      const msg = 'Конфликт: превышена вместимость площадок';
+      const msg = 'Conflict: court capacity exceeded';
       return res.status(400).json({ code: 'SCHEDULE_CONFLICT', message: msg });
     }
     const reservation = await CourtReservation.create({ courtId: id, startDateTime: s, endDateTime: e, note, forUserId, reservedBy: req.user._id });
@@ -366,7 +366,7 @@ exports.createReservation = async (req, res) => {
     res.status(201).json(populated);
   } catch (e) {
     console.error('Error create reservation:', e);
-    res.status(500).json({ message: 'Ошибка создания резервации' });
+    res.status(500).json({ message: 'Error creating reservation' });
   }
 };
 
@@ -375,12 +375,12 @@ exports.deleteReservation = async (req, res) => {
   try {
     const { id, reservationId } = req.params;
     const reservation = await CourtReservation.findOne({ _id: reservationId, courtId: id });
-    if (!reservation) return res.status(404).json({ message: 'Резервация не найдена' });
+    if (!reservation) return res.status(404).json({ message: 'Reservation not found' });
     await reservation.deleteOne();
     res.json({ success: true });
   } catch (e) {
     console.error('Error delete reservation:', e);
-    res.status(500).json({ message: 'Ошибка удаления резервации' });
+    res.status(500).json({ message: 'Error deleting reservation' });
   }
 };
 
@@ -390,13 +390,13 @@ exports.updateReservation = async (req, res) => {
     const { id, reservationId } = req.params;
     const { startDateTime, endDateTime, note, forUserId } = req.body;
     const reservation = await CourtReservation.findOne({ _id: reservationId, courtId: id });
-    if (!reservation) return res.status(404).json({ message: 'Резервация не найдена' });
+    if (!reservation) return res.status(404).json({ message: 'Reservation not found' });
     const nextStart = startDateTime !== undefined ? toDate(startDateTime) : reservation.startDateTime;
     const nextEnd = endDateTime !== undefined ? toDate(endDateTime) : reservation.endDateTime;
-    if (nextStart >= nextEnd) return res.status(400).json({ code: 'INVALID_TIME_RANGE', message: 'Временной интервал некорректен' });
+    if (nextStart >= nextEnd) return res.status(400).json({ code: 'INVALID_TIME_RANGE', message: 'Invalid time range' });
     const conflict = await hasReservationConflict(id, nextStart, nextEnd, reservation._id);
     if (conflict.conflict) {
-      const msg = 'Конфликт: превышена вместимость площадок';
+      const msg = 'Conflict: court capacity exceeded';
       return res.status(400).json({ code: 'SCHEDULE_CONFLICT', message: msg });
     }
     reservation.startDateTime = nextStart;
@@ -408,7 +408,7 @@ exports.updateReservation = async (req, res) => {
     res.json(populated);
   } catch (e) {
     console.error('Error update reservation:', e);
-    res.status(500).json({ message: 'Ошибка обновления резервации' });
+    res.status(500).json({ message: 'Error updating reservation' });
   }
 };
 
@@ -418,13 +418,13 @@ exports.deleteCourt = async (req, res) => {
     const court = await Court.findById(req.params.id);
     
     if (!court || court.isDeleted) {
-      return res.status(404).json({ message: 'Корт не найден' });
+      return res.status(404).json({ message: 'Court not found' });
     }
     
     court.isDeleted = true;
     await court.save();
     
-    res.json({ message: 'Корт успешно удален' });
+    res.json({ message: 'Court deleted successfully' });
   } catch (error) {
     console.error('Error deleting court:', error);
     res.status(500).json({ message: 'Ошибка при удалении корта' });
@@ -437,17 +437,17 @@ exports.assignManager = async (req, res) => {
     const { managerId } = req.body;
     
     if (!managerId) {
-      return res.status(400).json({ message: 'ID менеджера обязателен' });
+      return res.status(400).json({ message: 'Manager ID is required' });
     }
     
     const court = await Court.findById(req.params.id);
     if (!court || court.isDeleted) {
-      return res.status(404).json({ message: 'Корт не найден' });
+      return res.status(404).json({ message: 'Court not found' });
     }
     
     const manager = await User.findById(managerId);
     if (!manager) {
-      return res.status(400).json({ message: 'Пользователь не найден' });
+      return res.status(400).json({ message: 'User not found' });
     }
     
     if (!['court_manager', 'court_admin', 'super_admin'].includes(manager.role)) {
@@ -463,7 +463,7 @@ exports.assignManager = async (req, res) => {
     res.json(updatedCourt);
   } catch (error) {
     console.error('Error assigning manager:', error);
-    res.status(500).json({ message: 'Ошибка при назначении менеджера' });
+    res.status(500).json({ message: 'Error assigning manager' });
   }
 };
 
@@ -472,15 +472,15 @@ exports.assignOwner = async (req, res) => {
   try {
     const { ownerId } = req.body;
     if (!ownerId) {
-      return res.status(400).json({ message: 'ID владельца обязателен' });
+      return res.status(400).json({ message: 'Owner ID is required' });
     }
     const court = await Court.findById(req.params.id);
     if (!court || court.isDeleted) {
-      return res.status(404).json({ message: 'Корт не найден' });
+      return res.status(404).json({ message: 'Court not found' });
     }
     const owner = await User.findById(ownerId);
     if (!owner) {
-      return res.status(400).json({ message: 'Пользователь не найден' });
+      return res.status(400).json({ message: 'User not found' });
     }
     if (!['court_owner', 'court_admin', 'super_admin'].includes(owner.role)) {
       return res.status(400).json({ message: 'Пользователь не может быть владельцем корта' });
@@ -492,7 +492,7 @@ exports.assignOwner = async (req, res) => {
     res.json(updatedCourt);
   } catch (error) {
     console.error('Error assigning owner:', error);
-    res.status(500).json({ message: 'Ошибка при назначении владельца' });
+    res.status(500).json({ message: 'Error assigning owner' });
   }
 };
 
@@ -502,11 +502,10 @@ exports.getCourtStats = async (req, res) => {
     const court = await Court.findById(req.params.id);
     
     if (!court || court.isDeleted) {
-      return res.status(404).json({ message: 'Корт не найден' });
+      return res.status(404).json({ message: 'Court not found' });
     }
     
-    // Здесь можно добавить логику для получения статистики
-    // Например, количество матчей, популярность и т.д.
+    // Add logic to compute stats if needed
     
     const stats = {
       courtId: court._id,
@@ -514,12 +513,12 @@ exports.getCourtStats = async (req, res) => {
       status: court.status,
       isPaid: court.isPaid,
       manager: court.managerId ? await User.findById(court.managerId).select('name email') : null,
-      // Дополнительная статистика будет добавлена позже
+      // Additional stats can be added later
     };
     
     res.json(stats);
   } catch (error) {
     console.error('Error getting court stats:', error);
-    res.status(500).json({ message: 'Ошибка при получении статистики корта' });
+    res.status(500).json({ message: 'Error fetching court stats' });
   }
 }; 

@@ -3,6 +3,22 @@ const Match = require('../models/Match');
 const User = require('../models/User');
 const { updateRatingsAfterMatch } = require('../utils/rating');
 
+function validateGamesPayload(games) {
+  if (!Array.isArray(games) || games.length === 0) return { ok: false, message: 'At least one game is required' };
+  for (const g of games) {
+    const t1 = Array.isArray(g?.team1) ? g.team1.map(String) : [];
+    const t2 = Array.isArray(g?.team2) ? g.team2.map(String) : [];
+    const s1 = Number(g?.team1Score);
+    const s2 = Number(g?.team2Score);
+    if (t1.length !== 2 || t2.length !== 2) return { ok: false, message: 'Each team must contain exactly two players' };
+    if (t1[0] === t1[1] || t2[0] === t2[1]) return { ok: false, message: 'Same player cannot appear twice in a team' };
+    if (t1.includes(t2[0]) || t1.includes(t2[1])) return { ok: false, message: 'A player cannot be in both teams' };
+    if (!Number.isFinite(s1) || !Number.isFinite(s2)) return { ok: false, message: 'Scores must be numbers' };
+    if (s1 < 0 || s2 < 0) return { ok: false, message: 'Scores must be non-negative' };
+  }
+  return { ok: true };
+}
+
 // Создать результат матча (черновик без подтверждения)
 const createResult = async (req, res) => {
   try {
@@ -23,6 +39,11 @@ const createResult = async (req, res) => {
     );
     if (!isParticipant) {
       return res.status(403).json({ message: 'Only participants can confirm the result' });
+    }
+
+    const valid = validateGamesPayload(games);
+    if (!valid.ok) {
+      return res.status(400).json({ message: valid.message });
     }
 
     const result = new Result({
@@ -71,7 +92,7 @@ const updateResult = async (req, res) => {
     }
 
     if (result.isConfirmed) {
-      return res.status(400).json({ code: 'RESULT_ALREADY_CONFIRMED', message: 'Результат уже подтвержден и не может быть изменён' });
+      return res.status(400).json({ code: 'RESULT_ALREADY_CONFIRMED', message: 'Result is already confirmed and cannot be changed' });
     }
 
     const match = result.match;
@@ -83,6 +104,11 @@ const updateResult = async (req, res) => {
     );
     if (!isParticipant) {
       return res.status(403).json({ message: 'Only participants can edit the result' });
+    }
+
+    const valid = validateGamesPayload(games);
+    if (!valid.ok) {
+      return res.status(400).json({ message: valid.message });
     }
 
     // Обновляем черновик результата
@@ -107,7 +133,7 @@ const confirmResult = async (req, res) => {
     const { resultId } = req.params;
     const result = await Result.findById(resultId).populate('match');
     if (!result) return res.status(404).json({ message: 'Result not found' });
-    if (result.isConfirmed) return res.status(400).json({ code: 'RESULT_ALREADY_CONFIRMED', message: 'Результат уже подтвержден' });
+    if (result.isConfirmed) return res.status(400).json({ code: 'RESULT_ALREADY_CONFIRMED', message: 'Result already confirmed' });
     const match = result.match;
     if (!match) return res.status(404).json({ message: 'Match not found' });
 
@@ -136,10 +162,10 @@ const confirmResult = async (req, res) => {
 
     await updateRatingsAfterMatch(team1Users, team2Users, team1Wins, team2Wins, match._id, games, allParticipantUsers);
 
-    // Удаляем join-записи "Матч без результата"
+  // Remove join records "Match without result"
     for (const user of allParticipantUsers) {
       user.ratingHistory = user.ratingHistory.filter(
-        rh => !(rh.matchId?.toString() === match._id.toString() && rh.comment?.includes('Матч без результата'))
+        rh => !(rh.matchId?.toString() === match._id.toString() && rh.comment?.includes('Match without result'))
       );
       await user.save();
     }
@@ -230,11 +256,11 @@ module.exports = {
       const matchId = req.params.matchId;
       const result = await Result.findOne({ match: matchId });
       if (!result) {
-        return res.status(404).json({ error: 'Результат не найден', code: 'RESULT_NOT_FOUND' });
+        return res.status(404).json({ error: 'Result not found', code: 'RESULT_NOT_FOUND' });
       }
       const match = await Match.findById(matchId).populate('participants', 'name email rating ratingHistory');
       if (!match) {
-        return res.status(404).json({ error: 'Матч не найден', code: 'MATCH_NOT_FOUND' });
+        return res.status(404).json({ error: 'Match not found', code: 'MATCH_NOT_FOUND' });
       }
       let team1Wins = 0;
       let team2Wins = 0;
@@ -288,7 +314,7 @@ module.exports = {
       return res.json({ item: { matchId: match._id, team1Wins, team2Wins, totalGames: (result.games || []).length, participants } });
     } catch (error) {
       console.error('Get result stats error:', error);
-      res.status(500).json({ error: 'Ошибка сервера', code: 'SERVER_ERROR' });
+      res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
     }
   }
 }; 

@@ -1,5 +1,5 @@
 // Скрипт deleteJoinHistoryWithResult.js
-// Удаляет join-записи ("Матч без результата") для всех пользователей и матчей, где есть и join-запись, и итоговая запись.
+// Deletes join-records ("Match without result") for all users and matches where both join and final records exist.
 // Usage: node backend/scripts/deleteJoinHistoryWithResult.js
 require('dotenv').config({ path: __dirname + '/../.env' });
 const mongoose = require('mongoose');
@@ -28,12 +28,12 @@ if (!uri) {
       }
       let userChanged = false;
       for (const [matchId, arr] of Object.entries(byMatch)) {
-        const hasJoin = arr.some(rh => rh.comment?.includes('Матч без результата'));
+        const hasJoin = arr.some(rh => rh.comment?.includes('Match without result'));
         const hasResult = arr.some(rh => rh.comment?.includes('Индивидуальный расчёт'));
         if (hasJoin && hasResult) {
           const before = user.ratingHistory.length;
           user.ratingHistory = user.ratingHistory.filter(
-            rh => !(rh.matchId?.toString() === matchId && rh.comment?.includes('Матч без результата'))
+            rh => !(rh.matchId?.toString() === matchId && rh.comment?.includes('Match without result'))
           );
           if (user.ratingHistory.length < before) {
             userChanged = true;

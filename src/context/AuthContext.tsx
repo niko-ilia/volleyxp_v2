@@ -24,11 +24,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const t = getToken();
-    const u = getUser();
-    setToken(t);
-    setUser(u);
-    setLoading(false);
+    try {
+      const t = getToken();
+      const u = getUser();
+      setToken(t);
+      setUser(u);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const refreshUser = useCallback(async () => {

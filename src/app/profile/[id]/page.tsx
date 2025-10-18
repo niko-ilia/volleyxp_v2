@@ -1,0 +1,211 @@
+"use client";
+
+import * as React from "react";
+import { useParams } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { authFetchWithRetry } from "@/lib/auth/api";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+type PublicProfile = { id: string; name: string; rating?: number; createdAt?: string; emailMasked?: string };
+
+export default function PublicProfilePage() {
+  const params = useParams<{ id: string }>();
+  const userId = params?.id as string;
+  const [data, setData] = React.useState<PublicProfile | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [matches, setMatches] = React.useState<any[] | null>(null);
+  const [matchesError, setMatchesError] = React.useState<string | null>(null);
+  const [page, setPage] = React.useState(1);
+  const PAGE_SIZE = 5;
+  const [statsByMatchId, setStatsByMatchId] = React.useState<Record<string, { wins: number; losses: number }>>({});
+  const [summary, setSummary] = React.useState<{ total: number; wins: number; losses: number; winPct: number }>({ total: 0, wins: 0, losses: 0, winPct: 0 });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await authFetchWithRetry(`/api/users/${userId}/public`);
+        if (!res.ok) throw new Error(`Failed: ${res.status}`);
+        const body = await res.json();
+        const item = body?.item || body;
+        if (!cancelled) setData({ id: item.id || item._id, name: item.name, rating: item.rating, createdAt: item.createdAt, emailMasked: item.emailMasked });
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load profile');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    if (userId) load();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const createdAtFmt = React.useMemo(() => {
+    if (!data?.createdAt) return '—';
+    const d = new Date(data.createdAt);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US');
+  }, [data?.createdAt]);
+
+  // Load public match history and compute summary
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadHistory() {
+      if (!userId) return;
+      setMatchesError(null);
+      try {
+        const res = await authFetchWithRetry(`/api/users/${userId}/match-history`);
+        if (!res.ok) throw new Error(`Failed to load history: ${res.status}`);
+        const body = await res.json();
+        const itemsRaw = Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
+        // newest first by match date
+        const items = itemsRaw.slice().sort((a: any, b: any) => {
+          const da = new Date(a?.date || a?.startDateTime || 0).getTime();
+          const db = new Date(b?.date || b?.startDateTime || 0).getTime();
+          return db - da;
+        });
+        if (cancelled) return;
+        setMatches(items);
+        setPage(1);
+        const total = items.length;
+        const winsMatches = items.filter((it: any) => (Number(it.wins || 0) > Number(it.losses || 0))).length;
+        const lossesMatches = items.filter((it: any) => (Number(it.losses || 0) > Number(it.wins || 0))).length;
+        setSummary({ total, wins: winsMatches, losses: lossesMatches, winPct: total ? winsMatches / total : 0 });
+        const map: Record<string, { wins: number; losses: number }> = {};
+        for (const it of items) {
+          const id = it.matchId || it._id;
+          if (id) map[id] = { wins: Number(it.wins || 0), losses: Number(it.losses || 0) };
+        }
+        setStatsByMatchId(map);
+      } catch (e: any) {
+        if (!cancelled) setMatchesError(e?.message || 'Failed to load history');
+      }
+    }
+    loadHistory();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <Card className="max-w-xl mx-auto">
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              <div className="h-9 w-full animate-pulse rounded bg-muted" />
+              <div className="h-9 w-full animate-pulse rounded bg-muted" />
+            </div>
+          ) : error ? (
+            <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <div className="text-sm font-medium">Name</div>
+                <div className="text-sm text-muted-foreground">{data?.name || '—'}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium">Email</div>
+                <div className="text-sm text-muted-foreground">{data?.emailMasked || 'hidden'}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium">Registration date</div>
+                <div className="text-sm text-muted-foreground">{createdAtFmt}</div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Stats summary (read-only) */}
+      <div className="mt-8 max-w-xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Statistics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="rounded border p-3">
+                <div className="text-xs text-muted-foreground">Matches</div>
+                <div className="text-xl font-semibold">{summary.total}</div>
+              </div>
+              <div className="rounded border p-3">
+                <div className="text-xs text-muted-foreground">Win %</div>
+                <div className="text-xl font-semibold">{Math.round(summary.winPct * 100)}%</div>
+              </div>
+              <div className="rounded border p-3">
+                <div className="text-xs text-muted-foreground">Wins</div>
+                <div className="text-xl font-semibold">{summary.wins}</div>
+              </div>
+              <div className="rounded border p-3">
+                <div className="text-xs text-muted-foreground">Losses</div>
+                <div className="text-xl font-semibold">{summary.losses}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Matches list (read-only) */}
+      <div className="mt-8 max-w-xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Matches</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {matchesError ? (
+              <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">{matchesError}</div>
+            ) : null}
+            {!matches ? (
+              <div className="space-y-2">
+                <div className="h-9 w-full animate-pulse rounded bg-muted" />
+                <div className="h-9 w-full animate-pulse rounded bg-muted" />
+                <div className="h-9 w-full animate-pulse rounded bg-muted" />
+              </div>
+            ) : matches.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No matches yet</div>
+            ) : (
+              <div className="space-y-3">
+                {(matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)).map((m: any) => {
+                  const dt = m?.date ? new Date(m.date) : (m?.startDateTime ? new Date(m.startDateTime) : null);
+                  const dateStr = dt ? dt.toLocaleDateString('en-US') : '';
+                  const timeStr = dt ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                  const stat = statsByMatchId[m.matchId || m._id || ''] || { wins: undefined as any, losses: undefined as any };
+                  const href = m.matchId ? `/match/${m.matchId}` : (m._id ? `/match/${m._id}` : '#');
+                  return (
+                    <Link key={m.matchId || m._id} href={href} className="block">
+                      <div className="flex items-center justify-between rounded border p-3 hover:bg-muted/50">
+                        <div>
+                          <div className="font-medium">{m.place || m.title || 'Match'}</div>
+                          <div className="text-xs text-muted-foreground">{dateStr}{timeStr ? ` • ${timeStr}` : ''}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {typeof stat.wins === 'number' || typeof stat.losses === 'number' ? (
+                            <>
+                              <Badge>W {stat.wins ?? 0}</Badge>
+                              <Badge variant="secondary">L {stat.losses ?? 0}</Badge>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-2">
+                  <Button size="sm" variant="outline" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Back</Button>
+                  <div className="text-xs text-muted-foreground">Page {page} of {Math.max(1, Math.ceil(matches.length / PAGE_SIZE))}</div>
+                  <Button size="sm" variant="outline" disabled={page>=Math.ceil(matches.length/PAGE_SIZE)} onClick={()=>setPage(p=>Math.min(Math.ceil(matches.length/PAGE_SIZE), p+1))}>Next</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+

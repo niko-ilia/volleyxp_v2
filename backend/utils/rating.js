@@ -1,20 +1,20 @@
 /*
-Рейтинг рассчитывается по формуле, аналогичной Эло:
-- Для каждого гейма вычисляется ожидаемый результат expected = 1 / (1 + 10^((oppAvg - userAvg)))
-- score = 1 (победа), 0.5 (ничья), 0 (поражение)
-- delta = K * (score - expected), где K = 0.1
-- Итоговая дельта за матч — сумма по всем геймам, рейтинг пользователя обновляется на эту сумму
+Rating is calculated similarly to Elo:
+- For each game compute expected = 1 / (1 + 10^((oppAvg - userAvg)))
+- score = 1 (win), 0.5 (draw), 0 (loss)
+- delta = K * (score - expected), where K = 0.1
+- Final delta for the match is the sum across games; user's rating is updated by this amount
 */
 const User = require('../models/User');
 
 /**
- * Обновляет рейтинг игроков после матча (индивидуально по каждому гейму)
- * @param {Array} team1 - массив пользователей (объекты User) команды 1
- * @param {Array} team2 - массив пользователей (объекты User) команды 2
- * @param {Number} team1Wins - количество выигранных геймов командой 1
- * @param {Number} team2Wins - количество выигранных геймов командой 2
- * @param {String} matchId - id матча
- * @param {Array} games - массив геймов (каждый с team1, team2, team1Score, team2Score)
+ * Updates players' ratings after a match (per-game approach)
+ * @param {Array} team1 - array of User IDs for team 1
+ * @param {Array} team2 - array of User IDs for team 2
+ * @param {Number} team1Wins - number of games won by team 1
+ * @param {Number} team2Wins - number of games won by team 2
+ * @param {String} matchId - match id
+ * @param {Array} games - array of games ({ team1, team2, team1Score, team2Score })
  */
 async function updateRatingsAfterMatch(team1, team2, team1Wins, team2Wins, matchId, games, allParticipants) {
   const K = 0.1;
@@ -48,7 +48,7 @@ async function updateRatingsAfterMatch(team1, team2, team1Wins, team2Wins, match
             if (typeof rh.newRating === 'number') return rh.newRating;
           }
         }
-        // Фолбэк: читаем из Match.joinSnapshots
+      // Fallback: read from Match.joinSnapshots
         try {
           const Match = require('../models/Match');
           const m = await Match.findById(matchId, { joinSnapshots: 1 });
@@ -64,14 +64,14 @@ async function updateRatingsAfterMatch(team1, team2, team1Wins, team2Wins, match
       const userAvg = userJoinRatings.reduce((a,b)=>a+b,0) / userJoinRatings.length;
       const oppAvg = oppJoinRatings.reduce((a,b)=>a+b,0) / oppJoinRatings.length;
       
-      // Проверка на корректность средних значений
+      // Validate averages
       if (isNaN(userAvg) || isNaN(oppAvg)) {
-        console.warn(`[rating] Некорректные средние значения: userAvg=${userAvg}, oppAvg=${oppAvg}, пропускаем гейм`);
+        console.warn(`[rating] Invalid averages: userAvg=${userAvg}, oppAvg=${oppAvg}, skipping game`);
         continue;
       }
       
       const expected = 1 / (1 + Math.pow(10, (oppAvg - userAvg)));
-      let score = 0.5; // ничья
+      let score = 0.5; // draw
       if ((inTeam1 && game.team1Score > game.team2Score) || (inTeam2 && game.team2Score > game.team1Score)) score = 1;
       else if ((inTeam1 && game.team1Score < game.team2Score) || (inTeam2 && game.team2Score < game.team1Score)) score = 0;
       const delta = +(K * (score - expected)).toFixed(2);
@@ -90,14 +90,14 @@ async function updateRatingsAfterMatch(team1, team2, team1Wins, team2Wins, match
         delta
       });
     }
-    // Если не участвовал ни в одном гейме — всё равно добавляем запись с delta=0, details=[]
+    // If didn't participate in any game — still add a record with delta=0, details=[]
     let finalDelta = isNaN(deltaSum) ? 0 : deltaSum;
     let newRating = user.rating;
     if (gamesPlayed > 0 && !isNaN(deltaSum)) {
       newRating = +(user.rating + deltaSum).toFixed(2);
       user.rating = newRating;
     }
-    // --- joinRating для итоговой записи ---
+    // --- joinRating for final record ---
     let joinRatingForMatch = 2.0;
     if (Array.isArray(user.ratingHistory)) {
       const joinRec = user.ratingHistory.find(rh => rh.matchId?.toString() === matchId.toString() && typeof rh.joinRating === 'number');
@@ -108,7 +108,7 @@ async function updateRatingsAfterMatch(team1, team2, team1Wins, team2Wins, match
       delta: finalDelta,
       newRating: newRating,
       matchId,
-      comment: 'Индивидуальный расчёт по геймам',
+      comment: 'Per-game individual calculation',
       details,
       joinRating: joinRatingForMatch
     });
@@ -122,10 +122,10 @@ async function updateRatingsAfterMatch(team1, team2, team1Wins, team2Wins, match
 }
 
 /**
- * Сверяет рейтинг пользователя с историей ratingHistory
- * @param {User} user - объект пользователя
- * @param {boolean} fix - если true, исправляет rating на правильный
- * @returns {Promise<boolean>} - true если был фикс
+ * Recomputes user's rating from ratingHistory and optionally fixes it
+ * @param {User} user - user document
+ * @param {boolean} fix - if true, fixes rating to the computed one
+ * @returns {Promise<boolean>} - true if fixed
  */
 async function checkAndFixUserRatings(user, fix = false) {
   if (!user.ratingHistory || user.ratingHistory.length === 0) return false;

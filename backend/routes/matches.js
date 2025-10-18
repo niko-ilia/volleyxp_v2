@@ -13,7 +13,18 @@ const {
 const auth = require('../middleware/auth');
 const { logAdminAction } = require('../middleware/adminAuth');
 
-// Все роуты требуют аутентификации
+// Публичный роут для просмотра публичных будущих матчей
+// GET /api/matches/public?future=1
+router.get('/public', async (req, res, next) => {
+  // Проксируем в контроллер getMatches без req.user, чтобы вернулись только публичные
+  // Устанавливаем по умолчанию future=1, если не задано
+  if (typeof req.query.future === 'undefined') req.query.future = '1';
+  // Временный объект без пользователя, чтобы getMatches отфильтровал приватные
+  delete req.user;
+  return require('../controllers/matchController').getMatches(req, res, next);
+});
+
+// Все остальные роуты требуют аутентификации
 router.use(auth);
 
 // POST /api/matches - создать матч

@@ -62,7 +62,7 @@ if (!uri) {
         await updateRatingsAfterMatch(team1Users, team2Users, team1Wins, team2Wins, match._id, result.games, allParticipantUsers);
         count += allParticipantUsers.length;
       } else {
-        // Матч без результата - добавляем записи с delta=0
+        // Match without result - add records with delta=0
         const allParticipantUsers = await User.find({ _id: { $in: match.participants } });
         for (const user of allParticipantUsers) {
           user.ratingHistory.push({
@@ -70,7 +70,7 @@ if (!uri) {
             delta: 0,
             newRating: user.rating,
             matchId: match._id,
-            comment: 'Матч без результата',
+            comment: 'Match without result',
             details: []
           });
           await user.save();

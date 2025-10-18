@@ -1,6 +1,38 @@
 import { getToken, getRefreshToken, saveAuth, clearAuth } from "./storage";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || ""; // e.g., '' assumes same origin
+function getEnvFallback(name: string): string | undefined {
+  try {
+    const v = (process.env as any)?.[name];
+    if (v) return v as string;
+  } catch {}
+  try {
+    const v = (globalThis as any)?.import?.meta?.env?.[name];
+    if (v) return v as string;
+  } catch {}
+  try {
+    if (typeof window !== "undefined") {
+      const w = (window as any);
+      return (w[name] || w[`__${name}__`]) as string | undefined;
+    }
+  } catch {}
+  return undefined;
+}
+
+function normalizeBase(urlLike?: string): string {
+  if (!urlLike) return "";
+  let s = String(urlLike).trim();
+  if (s.startsWith("@")) s = s.slice(1); // support Vite-style '@https://api...'
+  // drop trailing slash for consistency
+  if (s.endsWith("/")) s = s.slice(0, -1);
+  return s;
+}
+
+const RAW_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  getEnvFallback("VITE_API_NEW") ||
+  ""; // empty => same-origin
+
+const API_BASE = normalizeBase(RAW_BASE); // e.g., '' assumes same origin
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(API_BASE + path, {

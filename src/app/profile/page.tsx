@@ -33,6 +33,8 @@ export default function ProfilePage() {
   const [page, setPage] = React.useState(1);
   const PAGE_SIZE = 5;
   const [statsByMatchId, setStatsByMatchId] = React.useState<Record<string, { wins: number; losses: number }>>({});
+  // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
+  const requestedStatsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     if (!loading && !user) {
@@ -114,6 +116,8 @@ export default function ProfilePage() {
         // Запрашиваем статистику только для завершённых матчей,
         // иначе бэкенд корректно возвращает 404 и засоряет консоль
         if (!m?._id || m?.status !== 'finished' || statsByMatchId[m._id]) return;
+        if (requestedStatsRef.current.has(m._id)) return; // уже запрашивали
+        requestedStatsRef.current.add(m._id);
         try {
           const res = await authFetchWithRetry(`/api/results/${m._id}/stats`);
           if (!res.ok) return; // no result yet or error — skip silently
@@ -140,10 +144,18 @@ export default function ProfilePage() {
       const finished = list.filter((m: any) => m?.status === 'finished');
       let wins = 0; let losses = 0; const total = finished.length;
       // Fetch stats for those we don't have yet and aggregate
-      await Promise.all(finished.map(async (m: any) => {
+      for (const m of finished) {
+        if (!m?._id) continue;
+        if (statsByMatchId[m._id]) {
+          const small = statsByMatchId[m._id];
+          if ((small.wins ?? 0) > (small.losses ?? 0)) wins += 1; else if ((small.losses ?? 0) > (small.wins ?? 0)) losses += 1;
+          continue;
+        }
+        if (requestedStatsRef.current.has(m._id)) continue;
+        requestedStatsRef.current.add(m._id);
         try {
           const res = await authFetchWithRetry(`/api/results/${m._id}/stats`);
-          if (!res.ok) return;
+          if (!res.ok) continue;
           const data = await res.json();
           const me = Array.isArray(data?.item?.participants)
             ? data.item.participants.find((p: any) => (p.userId?._id || p.userId) === uid)
@@ -152,11 +164,10 @@ export default function ProfilePage() {
             if ((me.wins ?? 0) > (me.losses ?? 0)) wins += 1;
             else if ((me.losses ?? 0) > (me.wins ?? 0)) losses += 1;
           }
-          // cache per-match small stats for UI badges
           const small = { wins: me?.wins ?? 0, losses: me?.losses ?? 0 };
           setStatsByMatchId(prev => ({ ...prev, [m._id]: prev[m._id] || small }));
         } catch {}
-      }));
+      }
       if (!cancelled) {
         setStatsSummary({ total, wins, losses, winPct: total ? wins / total : 0 });
       }

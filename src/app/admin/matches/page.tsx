@@ -49,7 +49,12 @@ export default function MatchesPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [page]);
+  // Debounced auto-load on filters/page changes to avoid spamming while typing
+  useEffect(() => {
+    const id = setTimeout(() => { load(); }, 300);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search, status]);
 
   return (
     <div className="space-y-4">

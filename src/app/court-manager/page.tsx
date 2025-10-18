@@ -45,8 +45,8 @@ export default function CourtManagerPage() {
     if (r.ok) setSchedule(await r.json());
   }
 
-  // Ensure we have fresh roles so access check works after promoting user
-  useEffect(() => { refreshUser().catch(() => void 0); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // Ensure we have fresh roles so access check works after promoting user (only once)
+  useEffect(() => { let done=false; (async()=>{ if(!done) await refreshUser().catch(()=>void 0); })(); return ()=>{done=true}; /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   useEffect(() => { if (canView) loadCourts(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [canView]);
   useEffect(() => { if (courtId) loadSchedule(courtId); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [courtId]);
 

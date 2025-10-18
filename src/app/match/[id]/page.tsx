@@ -179,7 +179,6 @@ export default function MatchPage() {
   }
 
   async function doSearch(q: string) {
-    setSearch(q);
     if (!q || q.length < 2) {
       setResults([]);
       return;
@@ -197,6 +196,14 @@ export default function MatchPage() {
       setSearching(false);
     }
   }
+
+  // Debounce search input to avoid request per keystroke
+  useEffect(() => {
+    if (search.length < 2) { setResults([]); return; }
+    const id = setTimeout(() => { void doSearch(search); }, 300);
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   async function addPlayer(email: string) {
     if (!match) return;
@@ -404,11 +411,11 @@ export default function MatchPage() {
 
           <div className="space-y-2">
             <div className="text-sm font-medium">Add existing player</div>
-            <Input
-              placeholder="Search by name or email"
-              value={search}
-              onChange={(e) => doSearch(e.target.value)}
-            />
+              <Input
+                placeholder="Search by name or email"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             {searching ? (
               <div className="text-sm text-muted-foreground">Searching…</div>
             ) : results.length ? (

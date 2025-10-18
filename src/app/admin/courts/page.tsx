@@ -335,10 +335,22 @@ function WorkingHours({ value, onChange }: { value: WorkingHoursMap; onChange: (
 function UserPicker({ label, value, onChange }: { label: string; value: UserLite | null; onChange: (u: UserLite | null) => void }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UserLite[]>([]);
-  async function searchUsers(q: string) {
-    if (!q || q.length < 2) { setItems([]); return; }
-    const r = await authFetchWithRetry(`/api/users/search?q=${encodeURIComponent(q)}`);
-    if (r.ok) setItems(await r.json());
+  // Debounce + cancel-inflight to avoid spamming search endpoint while typing
+  const tRef = useState<NodeJS.Timeout | null>(null)[0] as NodeJS.Timeout | null; // placeholder to satisfy type
+  const timerRef = useState<{ id: any | null }>({ id: null })[0];
+  const abortRef = useState<{ c: AbortController | null }>({ c: null })[0];
+  function searchUsers(q: string) {
+    if (timerRef.id) clearTimeout(timerRef.id);
+    if (!q || q.length < 2) { setItems([]); abortRef.c?.abort(); abortRef.c = null; return; }
+    timerRef.id = setTimeout(async () => {
+      abortRef.c?.abort();
+      const controller = new AbortController();
+      abortRef.c = controller;
+      try {
+        const r = await authFetchWithRetry(`/api/users/search?q=${encodeURIComponent(q)}`, { signal: controller.signal } as any);
+        if (r.ok) setItems(await r.json());
+      } catch {}
+    }, 300);
   }
   return (
     <div className="grid gap-2">

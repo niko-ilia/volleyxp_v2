@@ -13,8 +13,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
 
   useEffect(() => {
-    // Ensure we have fresh roles for guarding
-    refreshUser().catch(() => void 0);
+    // Ensure we have fresh roles for guarding once after mount
+    let done = false;
+    (async () => {
+      if (!done) await refreshUser().catch(() => void 0);
+    })();
+    return () => { done = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

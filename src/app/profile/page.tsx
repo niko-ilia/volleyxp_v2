@@ -134,7 +134,7 @@ export default function ProfilePage() {
     const uid = (user && (user._id || (user as any).id)) || null;
     async function computeSummary() {
       const finished = matches.filter((m: any) => m?.status === 'finished');
-      let wins = 0; let losses = 0; let total = finished.length;
+      let wins = 0; let losses = 0; const total = finished.length;
       // Fetch stats for those we don't have yet and aggregate
       await Promise.all(finished.map(async (m: any) => {
         try {

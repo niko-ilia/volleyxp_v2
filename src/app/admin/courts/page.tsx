@@ -26,6 +26,7 @@ type Court = {
   managerId?: { _id: string; name: string; email: string } | null;
   ownerId?: { _id: string; name: string; email: string } | null;
   courtsCount?: number;
+  workingHours?: WorkingHoursMap;
 };
 
 type CourtsResp = { courts: Court[]; total: number; totalPages: number; currentPage: number };
@@ -135,6 +136,9 @@ export default function CourtsPage() {
   );
 }
 
+type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+type WorkingHoursMap = Record<DayKey, { open: string; close: string }>
+
 function CourtModal({ open, setOpen, editing, onSaved }: { open: boolean; setOpen: (v: boolean) => void; editing: Court | null; onSaved: () => void }) {
   const [name, setName] = useState(editing?.name || "");
   const [description, setDescription] = useState(editing?.description || "");
@@ -148,12 +152,18 @@ function CourtModal({ open, setOpen, editing, onSaved }: { open: boolean; setOpe
   const [lng, setLng] = useState<string>("");
 
   // working hours simple HH for open/close
-  const [wh, setWh] = useState<{ [k: string]: { open: string; close: string } }>(() => {
+  const [wh, setWh] = useState<WorkingHoursMap>(() => {
     const def = { open: "07", close: "23" };
-    const days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"] as const;
-    const obj: any = {};
-    for (const d of days) obj[d] = def;
-    return editing?.workingHours ? (editing as any).workingHours : obj;
+    const defaultWH: WorkingHoursMap = {
+      monday: def,
+      tuesday: def,
+      wednesday: def,
+      thursday: def,
+      friday: def,
+      saturday: def,
+      sunday: def,
+    };
+    return editing?.workingHours ?? defaultWH;
   });
 
   // manager/owner pickers
@@ -175,7 +185,7 @@ function CourtModal({ open, setOpen, editing, onSaved }: { open: boolean; setOpe
   }, [open, editing]);
 
   async function save() {
-    const body: any = {
+    const body: Record<string, unknown> = {
       name,
       description,
       address,
@@ -252,11 +262,11 @@ function CourtModal({ open, setOpen, editing, onSaved }: { open: boolean; setOpe
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label>Цена 1 час (EUR)</Label>
-                <Input type="number" min={0} value={price1h as any} onChange={e => setPrice1h(e.target.value === "" ? "" : Number(e.target.value))} />
+                <Input type="number" min={0} value={price1h} onChange={e => setPrice1h(e.target.value === "" ? "" : Number(e.target.value))} />
               </div>
               <div className="grid gap-2">
                 <Label>Цена 2 часа (EUR)</Label>
-                <Input type="number" min={0} value={price2h as any} onChange={e => setPrice2h(e.target.value === "" ? "" : Number(e.target.value))} />
+                <Input type="number" min={0} value={price2h} onChange={e => setPrice2h(e.target.value === "" ? "" : Number(e.target.value))} />
               </div>
             </div>
           )}

@@ -111,7 +111,9 @@ export default function ProfilePage() {
     async function loadStatsForPage() {
       const slice = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
       await Promise.all(slice.map(async (m) => {
-        if (!m?._id || statsByMatchId[m._id]) return;
+        // Запрашиваем статистику только для завершённых матчей,
+        // иначе бэкенд корректно возвращает 404 и засоряет консоль
+        if (!m?._id || m?.status !== 'finished' || statsByMatchId[m._id]) return;
         try {
           const res = await authFetchWithRetry(`/api/results/${m._id}/stats`);
           if (!res.ok) return; // no result yet or error — skip silently

@@ -14,7 +14,7 @@ type MatchCard = {
   placesLeft: number;
 };
 
-export default function MatchesPreview({ mockOnly = false, title }: { mockOnly?: boolean; title?: string }) {
+export default function MatchesPreview({ mockOnly = false, title, fallbackToMock = true }: { mockOnly?: boolean; title?: string; fallbackToMock?: boolean }) {
   const [items, setItems] = useState<MatchCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,13 +72,21 @@ export default function MatchesPreview({ mockOnly = false, title }: { mockOnly?:
     }
   ];
 
-  const show = mockOnly ? mock : (items && items.length > 0 ? items : mock);
+  const show = mockOnly
+    ? mock
+    : (items && items.length > 0)
+      ? items
+      : fallbackToMock
+        ? mock
+        : [];
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-12">
       <h2 className="text-center text-2xl font-semibold mb-6">{header}</h2>
       {error ? (
         <p className="text-center text-sm text-destructive">{error}</p>
+      ) : show.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground">No upcoming public matches yet.</p>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
            {show.map((m) => (

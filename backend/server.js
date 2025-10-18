@@ -4,17 +4,29 @@ require('dotenv').config();
 
 const app = express();
 
-// CORS: управляем через CORS_ORIGINS (CSV список), иначе * в dev
-const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-const corsOptions = corsOrigins.length > 0 ? {
+// CORS: управляем через CORS_ORIGINS (CSV список). Поддерживаем шаблоны вида *.example.com
+const corsOriginsRaw = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const matchers = corsOriginsRaw.map(p => {
+  if (p === '*' || p === '*/') return () => true;
+  if (p.startsWith('*.')) {
+    const suffix = p.slice(1); // .example.com
+    return (origin) => typeof origin === 'string' && origin.endsWith(suffix);
+  }
+  return (origin) => origin === p;
+});
+const corsOptions = corsOriginsRaw.length > 0 ? {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (corsOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('CORS not allowed from this origin'));
+    const ok = matchers.some(fn => fn(origin));
+    return callback(ok ? null : new Error('CORS not allowed from this origin'), ok);
   },
   credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
 } : {};
 app.use(cors(corsOptions));
+// Обрабатываем preflight явным образом
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Инициализация Passport

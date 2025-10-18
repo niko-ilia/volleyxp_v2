@@ -42,7 +42,7 @@ export default function Home() {
         </Button>
       </section>
       <section className="mt-10">
-        <MatchesPreview />
+        <MatchesPreview fallbackToMock={false} />
       </section>
     </main>
   );

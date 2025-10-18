@@ -33,8 +33,21 @@ const RAW_BASE =
 
 const API_BASE = normalizeBase(RAW_BASE); // e.g., '' assumes same origin
 
+const DEFAULT_TIMEOUT_MS = 15000; // avoid infinite pending requests on prod
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(input, { ...init, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}) {
-  const res = await fetch(API_BASE + path, {
+  const res = await fetchWithTimeout(API_BASE + path, {
     headers: {
       "Content-Type": "application/json",
       ...(init.headers || {}),
@@ -46,7 +59,7 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
 
 export async function authFetch(path: string, init: RequestInit = {}) {
   const token = getToken();
-  const res = await fetch(API_BASE + path, {
+  const res = await fetchWithTimeout(API_BASE + path, {
     headers: {
       "Content-Type": "application/json",
       Authorization: token ? `Bearer ${token}` : "",

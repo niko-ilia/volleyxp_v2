@@ -265,19 +265,23 @@ function EditModal({ user, onClose, canMutate }: { user: UserItem | null; onClos
   const toggleRole = (r: string) => setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
 
   async function save() {
+    if (!user) return;
     const body: Record<string, unknown> = { roles, notes };
     const r = await authFetchWithRetry(`/api/admin/users/${user._id}/role`, { method: 'PUT', body: JSON.stringify(body) });
     onClose(r.ok);
   }
   async function block() {
+    if (!user) return;
     const r = await authFetchWithRetry(`/api/admin/users/${user._id}/block`, { method: 'POST', body: JSON.stringify({ reason: 'manual' }) });
     onClose(r.ok);
   }
   async function unblock() {
+    if (!user) return;
     const r = await authFetchWithRetry(`/api/admin/users/${user._id}/unblock`, { method: 'POST' });
     onClose(r.ok);
   }
   async function del() {
+    if (!user) return;
     const r = await authFetchWithRetry(`/api/admin/users/${user._id}`, { method: 'DELETE' });
     onClose(r.ok);
   }

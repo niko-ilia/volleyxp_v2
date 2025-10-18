@@ -41,6 +41,14 @@ const createResult = async (req, res) => {
       return res.status(403).json({ message: 'Only participants can confirm the result' });
     }
 
+    // 24h window: нельзя создавать результат позже чем через 24ч после начала
+    const matchStart = new Date(match.startDateTime);
+    const now = new Date();
+    const diffHours = (now - matchStart) / (1000 * 60 * 60);
+    if (diffHours > 24) {
+      return res.status(403).json({ message: 'Result can only be created within 24 hours after match start' });
+    }
+
     const valid = validateGamesPayload(games);
     if (!valid.ok) {
       return res.status(400).json({ message: valid.message });
@@ -104,6 +112,14 @@ const updateResult = async (req, res) => {
     );
     if (!isParticipant) {
       return res.status(403).json({ message: 'Only participants can edit the result' });
+    }
+
+    // 24h window for editing
+    const matchStart = new Date(match.startDateTime);
+    const now = new Date();
+    const diffHours = (now - matchStart) / (1000 * 60 * 60);
+    if (diffHours > 24) {
+      return res.status(403).json({ message: 'Result can only be edited within 24 hours after match start' });
     }
 
     const valid = validateGamesPayload(games);
@@ -219,6 +235,9 @@ const deleteResult = async (req, res) => {
     );
     if (!isParticipant) {
       return res.status(403).json({ message: 'Only participants can delete the result' });
+    }
+    if (result.isConfirmed) {
+      return res.status(400).json({ code: 'RESULT_ALREADY_CONFIRMED', message: 'Result is already confirmed and cannot be deleted' });
     }
     const matchStart = new Date(match.startDateTime);
     const now = new Date();

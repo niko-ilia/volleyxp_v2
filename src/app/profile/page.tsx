@@ -79,9 +79,9 @@ export default function ProfilePage() {
         if (!res.ok) throw new Error('Failed to load history');
         const items = await res.json();
         if (cancelled) return;
-        // Build per-match stats map and overall summary using finished items only
+        // Build per-match stats map and overall summary (games-based) using finished items only
         const per: Record<string, { wins: number; losses: number }> = {};
-        let wins = 0, losses = 0, total = 0;
+        let wins = 0, losses = 0, total = 0; // wins/losses here are GAME counts
         if (Array.isArray(items)) {
           for (const it of items) {
             if (!it?.matchId) continue;
@@ -92,12 +92,13 @@ export default function ProfilePage() {
               const w = Number(it?.wins ?? 0);
               const l = Number(it?.losses ?? 0);
               per[it.matchId] = { wins: w, losses: l };
-              if (w > l) wins += 1; else if (l > w) losses += 1;
+              wins += w; losses += l; // aggregate by games, not matches
             }
           }
         }
         setStatsByMatchId(prev => ({ ...per, ...prev }));
-        setStatsSummary({ total, wins, losses, winPct: total ? wins / total : 0 });
+        const gamesTotal = wins + losses;
+        setStatsSummary({ total, wins, losses, winPct: gamesTotal ? wins / gamesTotal : 0 });
       } catch (_) {
         // ignore — fallback to per-match stats loader below
       } finally {
@@ -183,13 +184,13 @@ export default function ProfilePage() {
     const list = matches as any[]; // capture non-null value for TS
     async function computeSummary() {
       const finished = list.filter((m: any) => m?.status === 'finished');
-      let wins = 0; let losses = 0; const total = finished.length;
-      // Fetch stats for those we don't have yet and aggregate
+      let wins = 0; let losses = 0; const total = finished.length; // wins/losses are GAME counts
+      // Fetch stats for those we don't have yet and aggregate (by games)
       for (const m of finished) {
         if (!m?._id) continue;
         if (statsByMatchId[m._id]) {
           const small = statsByMatchId[m._id];
-          if ((small.wins ?? 0) > (small.losses ?? 0)) wins += 1; else if ((small.losses ?? 0) > (small.wins ?? 0)) losses += 1;
+          wins += Number(small.wins ?? 0); losses += Number(small.losses ?? 0);
           continue;
         }
         if (requestedStatsRef.current.has(m._id)) continue;
@@ -201,16 +202,14 @@ export default function ProfilePage() {
           const me = Array.isArray(data?.item?.participants)
             ? data.item.participants.find((p: any) => (p.userId?._id || p.userId) === uid)
             : null;
-          if (me) {
-            if ((me.wins ?? 0) > (me.losses ?? 0)) wins += 1;
-            else if ((me.losses ?? 0) > (me.wins ?? 0)) losses += 1;
-          }
+          wins += Number(me?.wins ?? 0); losses += Number(me?.losses ?? 0);
           const small = { wins: me?.wins ?? 0, losses: me?.losses ?? 0 };
           setStatsByMatchId(prev => ({ ...prev, [m._id]: prev[m._id] || small }));
         } catch {}
       }
       if (!cancelled) {
-        setStatsSummary({ total, wins, losses, winPct: total ? wins / total : 0 });
+        const gamesTotal = wins + losses;
+        setStatsSummary({ total, wins, losses, winPct: gamesTotal ? wins / gamesTotal : 0 });
       }
     }
     computeSummary();

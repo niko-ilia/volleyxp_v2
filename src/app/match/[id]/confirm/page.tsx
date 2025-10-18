@@ -241,6 +241,13 @@ export default function ConfirmResultPage() {
     return true;
   }, [games]);
 
+  const is24hExpired = React.useMemo(() => {
+    if (!match?.startDateTime) return false;
+    const start = new Date(match.startDateTime);
+    const diffHours = (Date.now() - start.getTime()) / (1000 * 60 * 60);
+    return diffHours > 24;
+  }, [match?.startDateTime]);
+
   const persistDraft = React.useCallback(async (override?: Game[]): Promise<boolean> => {
     setSaving(true);
     setError(null);
@@ -387,9 +394,25 @@ export default function ConfirmResultPage() {
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           {!result?.isConfirmed && (
-                            <Button size="icon" variant="ghost" onClick={() => removeGame(idx)} aria-label="Delete game">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" aria-label="Delete game">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Удалить гейм?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Действие необратимо. Гейм будет удалён из черновика результата.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => removeGame(idx)}>Удалить</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           )}
                         </div>
                         {(() => {
@@ -468,17 +491,17 @@ export default function ConfirmResultPage() {
                 <div className="grid grid-cols-2 gap-3 md:w-1/2">
                   <div className="space-y-2">
                     <Label>Team 1 score</Label>
-                    <Input inputMode="numeric" value={wipScore1} onChange={e => setWipScore1(e.target.value)} />
+                    <Input inputMode="numeric" value={wipScore1} onChange={e => setWipScore1(e.target.value)} disabled={is24hExpired || !!result?.isConfirmed} />
                   </div>
                   <div className="space-y-2">
                     <Label>Team 2 score</Label>
-                    <Input inputMode="numeric" value={wipScore2} onChange={e => setWipScore2(e.target.value)} />
+                    <Input inputMode="numeric" value={wipScore2} onChange={e => setWipScore2(e.target.value)} disabled={is24hExpired || !!result?.isConfirmed} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-2">
                   <Button variant="outline" onClick={() => setStep("select2")}>Back</Button>
                   <Button variant="outline" onClick={() => setStep("idle")}>Cancel</Button>
-                  <Button onClick={saveWipGame} disabled={wipScore1 === "" || wipScore2 === ""}>Add result</Button>
+                  <Button onClick={saveWipGame} disabled={is24hExpired || !!result?.isConfirmed || wipScore1 === "" || wipScore2 === ""}>Add result</Button>
                 </div>
               </div>
             )}
@@ -491,7 +514,7 @@ export default function ConfirmResultPage() {
               {!result?.isConfirmed ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button disabled={games.length === 0 || confirming || result?.isConfirmed}>
+                  <Button disabled={games.length === 0 || confirming || result?.isConfirmed || is24hExpired}>
                     {result?.isConfirmed ? "Confirmed" : confirming ? "Confirming..." : "Confirm result"}
                   </Button>
                 </AlertDialogTrigger>

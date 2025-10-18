@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { authFetchWithRetry } from "@/lib/auth/api";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -405,7 +406,23 @@ export default function MatchPage() {
           <div className="flex items-center gap-2 pt-2">
             <Button onClick={leaveMatch}>Leave match</Button>
             {(user && match.creator?._id && (user._id || user.id) === match.creator._id && match.status !== 'cancelled') && (
-              <Button variant="destructive" onClick={cancelMatch} disabled={!cancelAction}>{cancelLabel}</Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={!cancelAction}>{cancelLabel}</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{cancelLabel}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Это действие повлияет на доступность матча для игроков. Подтвердите действие.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => cancelMatch()}>{cancelLabel}</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
             {canAddResults && (
               <Button onClick={openAddResults} className="shadow">Add result</Button>

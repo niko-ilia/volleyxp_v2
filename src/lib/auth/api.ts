@@ -21,7 +21,6 @@ function getEnvFallback(name: string): string | undefined {
 function normalizeBase(urlLike?: string): string {
   if (!urlLike) return "";
   let s = String(urlLike).trim();
-  if (s.startsWith("@")) s = s.slice(1); // support Vite-style '@https://api...'
   // drop trailing slash for consistency
   if (s.endsWith("/")) s = s.slice(0, -1);
   return s;

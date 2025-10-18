@@ -260,12 +260,12 @@ function EditModal({ user, onClose, canMutate }: { user: UserItem | null; onClos
     setNotes("");
   }, [user]);
 
-  if (!user) return null as any;
+  if (!user) return null;
 
   const toggleRole = (r: string) => setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
 
   async function save() {
-    const body: any = { roles, notes };
+    const body: Record<string, unknown> = { roles, notes };
     const r = await authFetchWithRetry(`/api/admin/users/${user._id}/role`, { method: 'PUT', body: JSON.stringify(body) });
     onClose(r.ok);
   }

@@ -96,7 +96,7 @@ export default function CreateMatchPage() {
       dt.setHours(h, m ?? 0, 0, 0);
       const startDateTime = dt.toISOString();
 
-      const body: any = {
+      const body: Record<string, unknown> = {
         title: title.trim(),
         description: description?.trim() || "",
         startDateTime,
@@ -131,8 +131,9 @@ export default function CreateMatchPage() {
       setShareText(msg + "\n\n" + (typeof window !== "undefined" ? window.location.origin + url : url));
       setShareUrl(url);
       setShareOpen(true);
-    } catch (e: any) {
-      setError(e?.message || "Failed to create match");
+    } catch (e) {
+      const err = e as { message?: string };
+      setError(err?.message || "Failed to create match");
     } finally {
       setSubmitting(false);
     }
@@ -275,7 +276,7 @@ export default function CreateMatchPage() {
 }
 
 async function safeJson(res: Response) {
-  try { return await res.json(); } catch { return null; }
+  try { return await res.json(); } catch { return null as unknown; }
 }
 
 

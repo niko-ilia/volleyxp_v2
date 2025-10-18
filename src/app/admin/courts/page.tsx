@@ -299,7 +299,7 @@ function CourtModal({ open, setOpen, editing, onSaved }: { open: boolean; setOpe
   );
 }
 
-function WorkingHours({ value, onChange }: { value: { [k: string]: { open: string; close: string } }; onChange: (v: any) => void }) {
+function WorkingHours({ value, onChange }: { value: WorkingHoursMap; onChange: (v: WorkingHoursMap) => void }) {
   const days = [
     { key: "monday", label: "Monday" },
     { key: "tuesday", label: "Tuesday" },

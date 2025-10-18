@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { authFetchWithRetry } from "@/lib/auth/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,10 @@ import { useAuth } from "@/context/AuthContext";
 import { DatePicker } from "@/components/ui/date-picker";
 
 type CourtRef = { _id: string; name: string; courtsCount?: number };
-type ScheduleRes = { court: { _id: string; name: string; courtsCount: number; workingHours?: any }; reservations: Array<any> };
+type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+type WorkingHoursMap = Record<DayKey, { open: string; close: string }>;
+type Reservation = { _id: string; startDateTime: string; endDateTime: string; forUserId?: { name?: string; email?: string } | null; note?: string; _source?: string };
+type ScheduleRes = { court: { _id: string; name: string; courtsCount: number; workingHours?: WorkingHoursMap }; reservations: Reservation[] };
 
 export default function CourtManagerPage() {
   const { user, refreshUser } = useAuth();
@@ -22,14 +25,15 @@ export default function CourtManagerPage() {
   const [from, setFrom] = useState<string>(() => new Date(new Date().setHours(0,0,0,0)).toISOString());
   const [to, setTo] = useState<string>(() => new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString());
   const [schedule, setSchedule] = useState<ScheduleRes | null>(null);
-  const [creating, setCreating] = useState({ date: "", time: "00:00", durationMin: 60, note: "", userSearch: "", pick: null as any });
+  const [creating, setCreating] = useState<{ date: string; time: string; durationMin: number; note: string; userSearch: string; pick: { _id: string } | null }>({ date: "", time: "00:00", durationMin: 60, note: "", userSearch: "", pick: null });
 
   async function loadCourts() {
     const path = roles.includes("super_admin") ? "/api/admin/courts" : "/api/admin/courts/mine";
     const r = await authFetchWithRetry(`${path}?limit=100`);
     if (!r.ok) return;
     const j = await r.json();
-    const items = (j.courts || []).map((c: any) => ({ _id: c._id, name: c.name, courtsCount: c.courtsCount }));
+    const courtsArr = Array.isArray(j?.courts) ? j.courts : [];
+    const items = courtsArr.map((c: { _id: string; name: string; courtsCount?: number }) => ({ _id: c._id, name: c.name, courtsCount: c.courtsCount }));
     setCourts(items);
     if (items[0]) setCourtId(items[0]._id);
   }
@@ -128,7 +132,7 @@ export default function CourtManagerPage() {
     const [hh, mm] = creating.time.split(":");
     const start = parseLocal(creating.date, Number(hh), Number(mm));
     const end = new Date(start.getTime() + creating.durationMin * 60000);
-    const body: any = { startDateTime: start.toISOString(), endDateTime: end.toISOString(), note: creating.note };
+    const body: Record<string, unknown> = { startDateTime: start.toISOString(), endDateTime: end.toISOString(), note: creating.note };
     if (creating.pick?._id) body.forUserId = creating.pick._id;
     const r = await authFetchWithRetry(`/api/admin/courts/${courtId}/reservations`, { method: 'POST', body: JSON.stringify(body) });
     if (r.ok) { await loadSchedule(); setCreating({ date: "", time: "00:00", durationMin: 60, note: "", userSearch: "", pick: null }); }
@@ -140,7 +144,7 @@ export default function CourtManagerPage() {
   }
 }
 
-function buildDaySlots(working?: any) {
+function buildDaySlots(working?: WorkingHoursMap) {
   const open = working?.monday?.open || "07"; const close = working?.monday?.close || "23";
   const startHour = Number(open); const endHour = Number(close);
   const hours = [] as string[];
@@ -148,7 +152,7 @@ function buildDaySlots(working?: any) {
   return hours;
 }
 
-function CalendarGrid({ courtsCount, slots, reservations }: { courtsCount: number; slots: string[]; reservations: any[] }) {
+function CalendarGrid({ courtsCount, slots, reservations }: { courtsCount: number; slots: string[]; reservations: Reservation[] }) {
   return (
     <div className="grid grid-cols-2 gap-2 border rounded overflow-hidden">
       {[0,1].map((dayIdx) => (

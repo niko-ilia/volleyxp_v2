@@ -34,15 +34,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Dedup concurrent refreshUser calls within a small window
+  const refreshInFlightRef = (globalThis as any).__volleyRefreshInFlightRef || { p: null as Promise<void> | null, ts: 0 };
+  (globalThis as any).__volleyRefreshInFlightRef = refreshInFlightRef;
+  const REFRESH_DEDUP_MS = 3000;
   const refreshUser = useCallback(async () => {
-    const res = await authFetch("/api/auth/me");
+    const now = Date.now();
+    if (refreshInFlightRef.p && now - refreshInFlightRef.ts < REFRESH_DEDUP_MS) {
+      return refreshInFlightRef.p;
+    }
+    const job = (async () => {
+      const res = await authFetch("/api/auth/me");
     if (res.status === 401) {
       const ref = await refreshTokenOnce();
       if (!ref) {
         clearAuth();
         setUser(null);
         setToken(null);
-        return;
+          return;
       }
       const retry = await authFetch("/api/auth/me");
       if (!retry.ok) return;
@@ -52,6 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const me = await res.json();
       setUser(me);
     }
+    })().finally(() => { refreshInFlightRef.p = null; });
+    refreshInFlightRef.p = job; refreshInFlightRef.ts = now; return job;
   }, []);
 
   const loginWithPassword = useCallback(async (email: string, password: string) => {

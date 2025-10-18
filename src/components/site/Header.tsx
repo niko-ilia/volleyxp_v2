@@ -11,7 +11,13 @@ export default function Header() {
   const { user, logout, loading, refreshUser } = useAuth();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => { setMounted(true); }, []);
-  React.useEffect(() => { if (user) { refreshUser().catch(() => void 0); } }, [user, refreshUser]);
+  // Refresh profile once right after login/mount, avoid loops on user change
+  const didRefreshRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!user || didRefreshRef.current) return;
+    didRefreshRef.current = true;
+    refreshUser().catch(() => void 0);
+  }, [user, refreshUser]);
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 items-center justify-between px-4">

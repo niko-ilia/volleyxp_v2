@@ -37,6 +37,7 @@ export default function MatchesPage() {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<MatchesResp | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -71,6 +72,67 @@ export default function MatchesPage() {
           </SelectContent>
         </Select>
         <Button onClick={() => { setPage(1); load(); }}>Применить</Button>
+        {canMutate && (
+          <Button variant="secondary" disabled={exporting} onClick={async () => {
+            setExporting(true);
+            try {
+              const res = await authFetchWithRetry('/api/results');
+              if (!res.ok) { alert(`Export failed: ${res.status}`); return; }
+              const items: any[] = await res.json();
+              const header = [
+                'matchId','title','place','startDateTime','confirmed','confirmedAt','gameIndex','team1_p1','team1_p2','team1Score','team2_p1','team2_p2','team2Score'
+              ];
+              const escape = (v: any) => {
+                const s = (v ?? '').toString();
+                if (s.includes('"') || s.includes(',') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
+                return s;
+              };
+              const lines: string[] = [header.join(',')];
+              for (const r of (items || [])) {
+                const m = r?.match || {};
+                const participants: any[] = Array.isArray(m?.participants) ? m.participants : [];
+                const idToName = new Map<string, string>();
+                for (const p of participants) { const pid = p?._id || p?.id; if (pid) idToName.set(String(pid), p?.name || p?.email || String(pid)); }
+                const games: any[] = Array.isArray(r?.games) ? r.games : [];
+                games.forEach((g, idx) => {
+                  const t1: string[] = (g?.team1 || []).map((x: any) => idToName.get(String(x)) || String(x));
+                  const t2: string[] = (g?.team2 || []).map((x: any) => idToName.get(String(x)) || String(x));
+                  const row = [
+                    r?.match?._id || m?._id || '',
+                    m?.title || '',
+                    m?.place || '',
+                    m?.startDateTime || '',
+                    r?.isConfirmed ? '1' : '0',
+                    r?.confirmedAt || '',
+                    String(idx + 1),
+                    t1[0] || '', t1[1] || '', String(g?.team1Score ?? ''),
+                    t2[0] || '', t2[1] || '', String(g?.team2Score ?? '')
+                  ];
+                  lines.push(row.map(escape).join(','));
+                });
+                if (games.length === 0) {
+                  const row = [
+                    r?.match?._id || m?._id || '',
+                    m?.title || '',
+                    m?.place || '',
+                    m?.startDateTime || '',
+                    r?.isConfirmed ? '1' : '0',
+                    r?.confirmedAt || '',
+                    '', '', '', '', '', '', ''
+                  ];
+                  lines.push(row.map(escape).join(','));
+                }
+              }
+              const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = `results_export_${new Date().toISOString().slice(0,10)}.csv`;
+              document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+            } catch (e: any) {
+              alert(e?.message || 'Export failed');
+            } finally { setExporting(false); }
+          }}>Экспорт CSV</Button>
+        )}
       </div>
 
       {loading ? (

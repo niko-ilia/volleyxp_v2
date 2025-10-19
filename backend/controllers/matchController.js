@@ -423,53 +423,44 @@ const updateMatch = async (req, res) => {
     }
     const action = req.body?.action;
     if (action === 'delete') {
-      // Можно удалить только если матч не начался или есть результат
+      // Новые правила: удаление разрешено только ДО начала и только если участник один (создатель)
       const now = new Date();
-      const matchEnd = new Date(match.startDateTime.getTime() + match.duration * 60000);
-      const result = await Result.findOne({ match: match._id });
-      
-      // Проверяем: матч не начался ИЛИ уже закончился и есть результат
-      const canDelete = now < match.startDateTime || (now > matchEnd && result);
-      
-      if (canDelete) {
-    // Удаляем запись из ratingHistory для всех участников
-    const users = await User.find({ _id: { $in: match.participants } });
-    for (const user of users) {
-      user.ratingHistory = user.ratingHistory.filter(rh => rh.matchId?.toString() !== match._id.toString());
-      user.markModified('ratingHistory');
-      await user.save();
-    }
-    await Match.findByIdAndDelete(req.params.id);
-        return res.json({ message: 'Match deleted' });
-      } else {
-        // Определяем причину невозможности удаления
-        if (now >= match.startDateTime && now <= matchEnd && !result) {
-          return res.status(400).json({ code: 'MATCH_IN_PROGRESS' });
-        } else {
-          return res.status(400).json({ code: 'CANNOT_DELETE_MATCH' });
-        }
+      const start = new Date(match.startDateTime);
+      const participantsCount = Array.isArray(match.participants) ? match.participants.length : 0;
+      if (now >= start) {
+        return res.status(400).json({ code: 'MATCH_ALREADY_STARTED', message: 'Cannot delete after start; use admin to force cancel' });
       }
+      if (participantsCount > 1) {
+        return res.status(400).json({ code: 'CANNOT_DELETE_WITH_PARTICIPANTS', message: 'Use cancel instead of delete when there are multiple participants' });
+      }
+      // Удаляем запись из ratingHistory для всех участников
+      const users = await User.find({ _id: { $in: match.participants } });
+      for (const user of users) {
+        user.ratingHistory = user.ratingHistory.filter(rh => rh.matchId?.toString() !== match._id.toString());
+        user.markModified('ratingHistory');
+        await user.save();
+      }
+      await Match.findByIdAndDelete(req.params.id);
+      return res.json({ message: 'Match deleted' });
     } else if (action === 'cancel') {
-      // Разрешаем:
-      // 1) До начала матча (always, если нет результата)
-      // 2) После конца матча, если нет результата и прошло ≤48ч
+      // Новые правила: cancel разрешён только ДО начала и только если нет результата
       if (match.status === 'cancelled') {
         return res.status(400).json({ code: 'ALREADY_CANCELLED' });
       }
       const start = new Date(match.startDateTime);
-      const end = new Date(match.startDateTime.getTime() + match.duration * 60000);
       const now = new Date();
       const result = await Result.findOne({ match: match._id });
       if (result) {
         return res.status(400).json({ code: 'RESULT_EXISTS' });
       }
-      // В процессе игры отменять нельзя
-      if (now >= start && now < end) {
-        return res.status(400).json({ code: 'MATCH_IN_PROGRESS' });
+      if (now >= start) {
+        return res.status(400).json({ code: 'MATCH_ALREADY_STARTED', message: 'Match already started; only admin can force cancel' });
       }
-      // Если уже закончился — ограничение 48 часов
-      if (now >= end && (now - end) > 48 * 60 * 60 * 1000) {
-        return res.status(400).json({ code: 'CANCEL_TOO_LATE' });
+      const participantsCount = Array.isArray(match.participants) ? match.participants.length : 0;
+      if (participantsCount <= 1) {
+        // если пришёл cancel при 1 участнике — удаляем
+        await Match.findByIdAndDelete(req.params.id);
+        return res.json({ message: 'Match deleted' });
       }
       match.status = 'cancelled';
       await match.save();

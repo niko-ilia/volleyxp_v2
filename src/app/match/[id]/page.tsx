@@ -245,14 +245,22 @@ export default function MatchPage() {
       alert("Cannot cancel/delete: match not finished or window expired");
       return;
     }
-    const res = await authFetchWithRetry(`/api/matches/${match._id}`, {
+    let res = await authFetchWithRetry(`/api/matches/${match._id}`, {
       method: "PATCH",
       body: JSON.stringify({ action })
     });
     if (!res.ok) {
       const err = await safeJson(res);
-      alert(err?.message || `Error ${res.status}`);
-      return;
+      const code = (err?.code || err?.error || err?.message || "").toString();
+      // Fallback for older backend: if cancel rejected with MATCH_NOT_FINISHED, try delete
+      if (action === "cancel" && (code.includes("MATCH_NOT_FINISHED") || res.status === 400)) {
+        res = await authFetchWithRetry(`/api/matches/${match._id}`, { method: "PATCH", body: JSON.stringify({ action: "delete" }) });
+      }
+      if (!res.ok) {
+        const err2 = await safeJson(res);
+        alert(err2?.message || err2?.code || `Error ${res.status}`);
+        return;
+      }
     }
     if (action === "delete") router.replace("/");
     else setMatch({ ...match, status: "cancelled" });
@@ -379,10 +387,10 @@ export default function MatchPage() {
   const now = new Date();
   const hasResult = !!result;
   const canCancelBeforeStart = now < start && !hasResult;
-  const canDelete = now < start && hasResult;
+  const canDelete = now < start && hasResult; // practically never, but keep for consistency
   const canCancelAfterEnd = now > end && !hasResult && (now.getTime() - end.getTime() <= 48 * 60 * 60 * 1000);
-  const cancelAction = canCancelBeforeStart ? 'cancel' : canDelete ? 'delete' : canCancelAfterEnd ? 'cancel' : null;
-  const cancelLabel = canDelete ? 'Delete match' : 'Cancel match';
+  const cancelAction = canCancelBeforeStart ? (participantsCount <= 1 ? 'delete' : 'cancel') : canDelete ? 'delete' : null;
+  const cancelLabel = (canCancelBeforeStart && participantsCount <= 1) || canDelete ? 'Delete match' : 'Cancel match';
 
   return (
     <div className="mx-auto w-full max-w-3xl p-6 space-y-6">

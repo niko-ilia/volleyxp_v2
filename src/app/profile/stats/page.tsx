@@ -24,7 +24,7 @@ export default function ProfileStatsPage() {
       if (!user) return;
       setLoading(true);
       try {
-        // naive stub: fetch recent matches and aggregate client-side.
+        // 1) Получаем историю матчей пользователя
         const res = await authFetchWithRetry(`/api/users/match-history`);
         if (!res.ok) return;
         const items: any[] = await res.json();
@@ -34,23 +34,32 @@ export default function ProfileStatsPage() {
         const teamMap = new Map<string, Row>();
         const oppMap = new Map<string, Row>();
 
-        for (const m of items) {
-          const me = myId;
-          const team1: any[] = Array.isArray(m?.participants) ? m.participants : [];
-          // participants shape is from controller; we already have wins/draws/losses per entry in profile history
-          const myWin = (m?.wins ?? 0) > (m?.losses ?? 0) ? 1 : 0; // simple placeholder; real derivation requires per-game
-
-          for (const p of team1) {
-            const pid = p.id || p._id;
-            if (!pid || pid === me) continue;
-            const bucket = Math.random() > 0.5 ? teamMap : oppMap; // placeholder split; real split requires team info
-            const key = pid;
-            const row = bucket.get(key) || { name: p.name || p.email, email: p.email, wins: 0, losses: 0, games: 0 };
-            row.games += 1;
-            if (myWin) row.wins += 1; else row.losses += 1;
-            bucket.set(key, row);
+        // 2) Берём только завершённые матчи и тянем реальные stats по каждому
+        const finished = (Array.isArray(items) ? items : []).filter((i: any) => i?.status === 'finished' || (typeof i?.wins === 'number' || typeof i?.losses === 'number'));
+        await Promise.all(finished.map(async (it: any) => {
+          const mid = it?.matchId || it?._id || it?.id;
+          if (!mid) return;
+          const s = await authFetchWithRetry(`/api/results/${mid}/stats`);
+          if (!s.ok) return;
+          const data = await s.json();
+          const parts: any[] = Array.isArray(data?.item?.participants) ? data.item.participants : [];
+          // Разворачиваем участников в teammates/opponents относительно меня по геймам
+          // У нас уже агрегировано по игроку: wins/losses/games — этого достаточно для кумуляции
+          for (const p of parts) {
+            const pid = p?.userId?._id || p?.userId || p?._id || p?.id;
+            if (!pid || pid === myId) continue;
+            const entry: Row = { name: p?.name || p?.email || String(pid), email: p?.email, wins: Number(p?.wins||0), losses: Number(p?.losses||0), games: Number(p?.games||0) };
+            // Определение teammate/opponent: если у игрока были общие геймы со мной в одной команде чаще, чем в другой — teammate.
+            // Стат-эндпоинт сейчас не отдаёт явного разбиения, поэтому приближённо считаем teammate если (wins+losses) > 0 и wins > losses в тех геймах, где мы играли вместе.
+            // Без точных данных о составе геймов распределим всех как opponents по умолчанию.
+            const bucket = oppMap; // дообогащение возможно после расширения stats
+            const map = bucket === teamMap ? teamMap : oppMap;
+            const prev = map.get(pid) || { name: entry.name, email: entry.email, wins: 0, losses: 0, games: 0 };
+            prev.wins += entry.wins; prev.losses += entry.losses; prev.games += entry.games;
+            map.set(pid, prev);
           }
-        }
+        }));
+
         setRowsTeam(Array.from(teamMap.values()).sort((a,b)=> (b.wins-a.wins)||(a.losses-b.losses)));
         setRowsOpp(Array.from(oppMap.values()).sort((a,b)=> (b.wins-a.wins)||(a.losses-b.losses)));
       } finally {

@@ -80,7 +80,9 @@ export default function MatchesPage() {
               if (!res.ok) { alert(`Export failed: ${res.status}`); return; }
               const items: any[] = await res.json();
               const header = [
-                'matchId','title','place','startDateTime','confirmed','confirmedAt','gameIndex','team1_p1','team1_p2','team1Score','team2_p1','team2_p2','team2Score'
+                'matchId','title','place','startDateTime','confirmed','confirmedAt','gameIndex',
+                'team1_p1','team1_p1_username','team1_p2','team1_p2_username','team1Score',
+                'team2_p1','team2_p1_username','team2_p2','team2_p2_username','team2Score'
               ];
               const escape = (v: any) => {
                 const s = (v ?? '').toString();
@@ -92,11 +94,20 @@ export default function MatchesPage() {
                 const m = r?.match || {};
                 const participants: any[] = Array.isArray(m?.participants) ? m.participants : [];
                 const idToName = new Map<string, string>();
-                for (const p of participants) { const pid = p?._id || p?.id; if (pid) idToName.set(String(pid), p?.name || p?.email || String(pid)); }
+                const idToUsername = new Map<string, string>();
+                for (const p of participants) {
+                  const pid = p?._id || p?.id; if (!pid) continue;
+                  idToName.set(String(pid), p?.name || p?.email || String(pid));
+                  idToUsername.set(String(pid), p?.username || p?.telegramUsername || '');
+                }
                 const games: any[] = Array.isArray(r?.games) ? r.games : [];
                 games.forEach((g, idx) => {
-                  const t1: string[] = (g?.team1 || []).map((x: any) => idToName.get(String(x)) || String(x));
-                  const t2: string[] = (g?.team2 || []).map((x: any) => idToName.get(String(x)) || String(x));
+                  const t1Ids: string[] = (g?.team1 || []).map((x: any) => String(x));
+                  const t2Ids: string[] = (g?.team2 || []).map((x: any) => String(x));
+                  const t1 = t1Ids.map(id => idToName.get(id) || id);
+                  const t2 = t2Ids.map(id => idToName.get(id) || id);
+                  const t1u = t1Ids.map(id => idToUsername.get(id) || '');
+                  const t2u = t2Ids.map(id => idToUsername.get(id) || '');
                   const row = [
                     r?.match?._id || m?._id || '',
                     m?.title || '',
@@ -105,8 +116,8 @@ export default function MatchesPage() {
                     r?.isConfirmed ? '1' : '0',
                     r?.confirmedAt || '',
                     String(idx + 1),
-                    t1[0] || '', t1[1] || '', String(g?.team1Score ?? ''),
-                    t2[0] || '', t2[1] || '', String(g?.team2Score ?? '')
+                    t1[0] || '', t1u[0] || '', t1[1] || '', t1u[1] || '', String(g?.team1Score ?? ''),
+                    t2[0] || '', t2u[0] || '', t2[1] || '', t2u[1] || '', String(g?.team2Score ?? '')
                   ];
                   lines.push(row.map(escape).join(','));
                 });
@@ -118,7 +129,7 @@ export default function MatchesPage() {
                     m?.startDateTime || '',
                     r?.isConfirmed ? '1' : '0',
                     r?.confirmedAt || '',
-                    '', '', '', '', '', '', ''
+                    '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
                   ];
                   lines.push(row.map(escape).join(','));
                 }

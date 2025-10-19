@@ -91,23 +91,25 @@ export default function MatchesPreview({ mockOnly = false, title, fallbackToMock
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
            {show.map((m) => (
             <div key={m.id} className="block h-full">
-              <Card className="transition hover:shadow-md h-full flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
-                  <p className="text-xs text-muted-foreground">{m.datetime}</p>
-                  <p className="text-sm text-muted-foreground">{m.place}</p>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <div className="flex flex-wrap gap-2">
-                    {m.participants.length ? (
-                      m.participants.map((p) => <Badge key={p}>{p}</Badge>)
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No participants</p>
-                    )}
-                  </div>
-                  <p className="mt-auto pt-3 text-sm">Places left: {m.placesLeft}</p>
-                </CardContent>
-              </Card>
+              <Link href={`/match/${m.id}`} className="block h-full">
+                <Card className="transition hover:shadow-md h-full flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{m.title}</CardTitle>
+                    <p className="text-xs text-muted-foreground">{m.datetime}</p>
+                    <p className="text-sm text-muted-foreground">{m.place}</p>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col">
+                    <div className="flex flex-wrap gap-2">
+                      {m.participants.length ? (
+                        m.participants.map((p) => <Badge key={p}>{p}</Badge>)
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No participants</p>
+                      )}
+                    </div>
+                    <p className="mt-auto pt-3 text-sm">Places left: {m.placesLeft}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
           ))}
         </div>

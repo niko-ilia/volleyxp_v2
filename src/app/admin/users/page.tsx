@@ -193,11 +193,19 @@ export default function UsersPage() {
 
 function InfoModal({ user, onClose }: { user: UserItem | null; onClose: () => void }) {
   const [stats, setStats] = useState<any | null>(null);
+  const [userHash, setUserHash] = useState<string | null>(null);
   useEffect(() => {
     if (!user) return;
     authFetchWithRetry(`/api/admin/users/${user._id}/stats`).then(async r => {
       if (r.ok) setStats(await r.json()); else setStats(null);
     });
+    // Получаем хэш пользователя (если бэкенд отдаёт)
+    authFetchWithRetry(`/api/admin/users/${user._id}`).then(async r => {
+      if (!r.ok) return;
+      const j = await r.json();
+      const h = j?.hash || j?.userHash || j?.idHash || null;
+      if (h) setUserHash(String(h));
+    }).catch(()=>void 0);
   }, [user]);
   return (
     <Dialog open={!!user} onOpenChange={v => { if (!v) onClose(); }}>
@@ -211,6 +219,9 @@ function InfoModal({ user, onClose }: { user: UserItem | null; onClose: () => vo
               <div>Email: {user.email}</div>
               <div>Рейтинг: {user.rating?.toFixed ? user.rating.toFixed(2) : (user.rating ?? '—')}</div>
               <div>Дата регистрации: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</div>
+              {userHash && (
+                <div>Hash: <code className="font-mono text-xs break-all">{userHash}</code></div>
+              )}
             </div>
             {stats && (
               <div className="space-y-2">

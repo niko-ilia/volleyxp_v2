@@ -26,7 +26,8 @@ const corsOptions = corsOriginsRaw.length > 0 ? {
 } : {};
 app.use(cors(corsOptions));
 // Обрабатываем preflight явным образом
-app.options('*', cors(corsOptions));
+// Express v5 (path-to-regexp v6) не поддерживает '*' как путь — используем регэксп
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 // Инициализация Passport

@@ -121,6 +121,12 @@ export default function ConfirmResultPage() {
     return Array.from(map.values()).sort((a, b) => (a.name || a.email || a._id).localeCompare(b.name || b.email || b._id));
   }, [match?.participants]);
 
+  const participantsMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of participants) map.set(p._id, p.name || p.email || p._id);
+    return map;
+  }, [participants]);
+
   const startAddResult = React.useCallback(() => {
     setEditingIndex(null);
     setWipTeam1(["", ""]);
@@ -376,8 +382,8 @@ export default function ConfirmResultPage() {
 
           <div className="space-y-4">
             {step === "idle" ? (
-              <ScrollArea className="max-h-[60vh] rounded border p-2 bg-card">
-                <div className="space-y-3">
+              <ScrollArea className="h-[60vh] overflow-hidden rounded border p-2 bg-card">
+                <div className="space-y-3 pb-20">
                   {games.length === 0 ? (
                     <div className="text-sm text-muted-foreground">No games yet</div>
                   ) : (
@@ -387,8 +393,8 @@ export default function ConfirmResultPage() {
                         return p?.name || p?.email || id;
                       };
                       return (
-                      <div key={idx} className="relative rounded border p-4">
-                        <div className="mb-3 text-sm font-medium">Game {idx + 1}</div>
+                      <div key={idx} className="relative rounded border p-3 sm:p-4">
+                        <div className="mb-2 text-sm font-medium">Game {idx + 1}</div>
                         <div className="absolute right-2 top-2 flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => startEditResult(idx)} aria-label="Edit game">
                             <Edit2 className="h-4 w-4" />
@@ -421,19 +427,27 @@ export default function ConfirmResultPage() {
                           const t1Win = t1 > t2; // kept for future, but style now same
                           const t2Win = t2 > t1;
                           return (
-                            <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
-                              <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
-                                <Badge>{pName(g.team1[0])}</Badge>
-                                <Badge>{pName(g.team1[1])}</Badge>
+                            <div className="grid items-center gap-2 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                              <div className="min-w-0 flex flex-row flex-wrap items-center gap-1">
+                                <Badge className="px-2 py-0.5 text-xs w-[72px] sm:w-20 md:w-[120px] truncate justify-start">
+                                  {pName(g.team1[0])}
+                                </Badge>
+                                <Badge className="px-2 py-0.5 text-xs w-[72px] sm:w-20 md:w-[120px] truncate justify-start">
+                                  {pName(g.team1[1])}
+                                </Badge>
                               </div>
                               <div className="flex items-center justify-center gap-2">
                                 <div className="text-3xl font-bold leading-none md:text-4xl">{t1}</div>
                                 <span className="text-muted-foreground">:</span>
                                 <div className="text-3xl font-bold leading-none md:text-4xl">{t2}</div>
                               </div>
-                              <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:justify-end md:items-center">
-                                <Badge>{pName(g.team2[0])}</Badge>
-                                <Badge>{pName(g.team2[1])}</Badge>
+                              <div className="min-w-0 flex flex-row flex-wrap justify-end items-center gap-1">
+                                <Badge className="px-2 py-0.5 text-xs w-[72px] sm:w-20 md:w-[120px] truncate justify-start">
+                                  {pName(g.team2[0])}
+                                </Badge>
+                                <Badge className="px-2 py-0.5 text-xs w-[72px] sm:w-20 md:w-[120px] truncate justify-start">
+                                  {pName(g.team2[1])}
+                                </Badge>
                               </div>
                             </div>
                           );
@@ -488,6 +502,18 @@ export default function ConfirmResultPage() {
             ) : (
               <div className="rounded border p-4 space-y-3 bg-card">
                 <div className="text-sm font-medium">Enter score</div>
+                <div className="text-xs text-muted-foreground">Teams</div>
+                <div className="grid items-center gap-3 md:grid-cols-[1fr_auto_1fr]">
+                  <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                    <Badge variant="secondary">{participantsMap.get(wipTeam1[0] || "") || "—"}</Badge>
+                    <Badge variant="secondary">{participantsMap.get(wipTeam1[1] || "") || "—"}</Badge>
+                  </div>
+                  <div className="flex items-center justify-center text-muted-foreground">vs</div>
+                  <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:justify-end md:items-center">
+                    <Badge variant="secondary">{participantsMap.get(wipTeam2[0] || "") || "—"}</Badge>
+                    <Badge variant="secondary">{participantsMap.get(wipTeam2[1] || "") || "—"}</Badge>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-3 md:w-1/2">
                   <div className="space-y-2">
                     <Label>Team 1 score</Label>
@@ -512,25 +538,27 @@ export default function ConfirmResultPage() {
               )}
               <div className="grow" />
               {!result?.isConfirmed ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button disabled={games.length === 0 || confirming || result?.isConfirmed || is24hExpired}>
-                    {result?.isConfirmed ? "Confirmed" : confirming ? "Confirming..." : "Confirm result"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm result?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action is irreversible. After confirmation, the result cannot be edited and ratings will be recalculated.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => setTimeout(() => { void onConfirm(); }, 0)}>Confirm</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                step === "idle" ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button disabled={games.length === 0 || confirming || result?.isConfirmed || is24hExpired}>
+                        {result?.isConfirmed ? "Confirmed" : confirming ? "Confirming..." : "Confirm result"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm result?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action is irreversible. After confirmation, the result cannot be edited and ratings will be recalculated.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setTimeout(() => { void onConfirm(); }, 0)}>Confirm</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : null
               ) : (
                 <Button onClick={() => router.push(`/match/${matchId}`)} variant="secondary">Go to match</Button>
               )}

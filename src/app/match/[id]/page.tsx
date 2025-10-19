@@ -51,6 +51,19 @@ function formatRating(r?: number): string {
   return r.toFixed(2);
 }
 
+function maskEmail(email: string): string {
+  const parts = String(email || "").split("@");
+  if (parts.length !== 2) return String(email || "");
+  const [local, domain] = parts;
+  const localMasked = local.length <= 2
+    ? (local.slice(0, 1) + "*")
+    : (local.slice(0, 1) + "*".repeat(Math.min(local.length - 2, 3)) + local.slice(-1));
+  const domainParts = domain.split(".");
+  const name = domainParts.shift() || "";
+  const domainMasked = (name ? name.slice(0, 1) + "***" : "***") + (domainParts.length ? "." + domainParts.join(".") : "");
+  return `${localMasked}@${domainMasked}`;
+}
+
 export default function MatchPage() {
   const params = useParams();
   const router = useRouter();
@@ -411,12 +424,12 @@ export default function MatchPage() {
           {match.status === 'cancelled' && (
             <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Status</div><div className="font-semibold text-destructive">Cancelled</div></div>
           )}
-          <div className="flex items-center gap-2 pt-2">
-            <Button onClick={leaveMatch}>Leave match</Button>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <Button onClick={leaveMatch} className="shrink-0">Leave match</Button>
             {(user && match.creator?._id && (user._id || user.id) === match.creator._id && match.status !== 'cancelled') && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={!cancelAction}>{cancelLabel}</Button>
+                  <Button variant="destructive" disabled={!cancelAction} className="shrink-0">{cancelLabel}</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -433,9 +446,9 @@ export default function MatchPage() {
               </AlertDialog>
             )}
             {canAddResults && (
-              <Button onClick={openAddResults} className="shadow">Add result</Button>
+              <Button onClick={openAddResults} className="shadow shrink-0">Add result</Button>
             )}
-            <Button className="ml-auto" variant="secondary" onClick={() => setShareOpen(true)}>Share</Button>
+            <Button className="ml-0 sm:ml-auto shrink-0" variant="secondary" onClick={() => setShareOpen(true)}>Share</Button>
           </div>
         </CardContent>
       </Card>
@@ -451,7 +464,7 @@ export default function MatchPage() {
               const r = js?.rating ?? p.rating;
               return (
                 <Link key={p._id} href={`/profile/${p._id}`} className="rounded-md border p-3 shadow-xs flex items-center justify-between hover:bg-muted/50">
-                  <div className="font-medium text-sm">{p.name || p.email}</div>
+                  <div className="font-medium text-sm">{p.name || maskEmail(p.email)}</div>
                   <Badge variant="secondary" className="text-xs">★ {formatRating(r)}</Badge>
                 </Link>
               )
@@ -472,8 +485,8 @@ export default function MatchPage() {
                 {results.map((u) => (
                   <li key={u._id} className="flex items-center justify-between p-2 text-sm">
                     <div>
-                      <div className="font-medium">{u.name || u.email}</div>
-                      <div className="text-muted-foreground text-xs">{u.email}</div>
+                      <div className="font-medium">{u.name || maskEmail(u.email)}</div>
+                      <div className="text-muted-foreground text-xs">{maskEmail(u.email)}</div>
                     </div>
                     <Button size="sm" disabled={adding === u.email} onClick={() => addPlayer(u.email)}>Add</Button>
                   </li>
@@ -534,7 +547,7 @@ export default function MatchPage() {
           <DialogHeader>
             <DialogTitle>Share match</DialogTitle>
           </DialogHeader>
-          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap font-mono">
+          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap break-all font-mono">
             {shareText}
           </div>
           <DialogFooter>

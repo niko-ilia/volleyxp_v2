@@ -253,7 +253,7 @@ export default function CreateMatchPage() {
           <DialogHeader>
             <DialogTitle>Share match</DialogTitle>
           </DialogHeader>
-          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap font-mono">
+          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap break-all font-mono">
             {shareText}
           </div>
           <DialogFooter>

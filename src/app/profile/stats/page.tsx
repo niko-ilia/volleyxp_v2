@@ -24,7 +24,7 @@ export default function ProfileStatsPage() {
       if (!user) return;
       setLoading(true);
       try {
-        // 1) Получаем историю матчей пользователя
+        // 1) История матчей пользователя
         const res = await authFetchWithRetry(`/api/users/match-history`);
         if (!res.ok) return;
         const items: any[] = await res.json();
@@ -34,29 +34,49 @@ export default function ProfileStatsPage() {
         const teamMap = new Map<string, Row>();
         const oppMap = new Map<string, Row>();
 
-        // 2) Берём только завершённые матчи и тянем реальные stats по каждому
+        // 2) Для завершённых матчей — берём сырой результат (с составами геймов) + участников матча
         const finished = (Array.isArray(items) ? items : []).filter((i: any) => i?.status === 'finished' || (typeof i?.wins === 'number' || typeof i?.losses === 'number'));
         await Promise.all(finished.map(async (it: any) => {
           const mid = it?.matchId || it?._id || it?.id;
           if (!mid) return;
-          const s = await authFetchWithRetry(`/api/results/${mid}/stats`);
-          if (!s.ok) return;
-          const data = await s.json();
-          const parts: any[] = Array.isArray(data?.item?.participants) ? data.item.participants : [];
-          // Разворачиваем участников в teammates/opponents относительно меня по геймам
-          // У нас уже агрегировано по игроку: wins/losses/games — этого достаточно для кумуляции
-          for (const p of parts) {
-            const pid = p?.userId?._id || p?.userId || p?._id || p?.id;
-            if (!pid || pid === myId) continue;
-            const entry: Row = { name: p?.name || p?.email || String(pid), email: p?.email, wins: Number(p?.wins||0), losses: Number(p?.losses||0), games: Number(p?.games||0) };
-            // Определение teammate/opponent: если у игрока были общие геймы со мной в одной команде чаще, чем в другой — teammate.
-            // Стат-эндпоинт сейчас не отдаёт явного разбиения, поэтому приближённо считаем teammate если (wins+losses) > 0 и wins > losses в тех геймах, где мы играли вместе.
-            // Без точных данных о составе геймов распределим всех как opponents по умолчанию.
-            const bucket = oppMap; // дообогащение возможно после расширения stats
-            const map = bucket === teamMap ? teamMap : oppMap;
-            const prev = map.get(pid) || { name: entry.name, email: entry.email, wins: 0, losses: 0, games: 0 };
-            prev.wins += entry.wins; prev.losses += entry.losses; prev.games += entry.games;
-            map.set(pid, prev);
+          const [resResult, resMatch] = await Promise.all([
+            authFetchWithRetry(`/api/results/${mid}`),
+            authFetchWithRetry(`/api/matches/${mid}`)
+          ]);
+          if (!resResult.ok || !resMatch.ok) return;
+          const result: any = await resResult.json();
+          const match: any = await resMatch.json();
+          const idToName = new Map<string, { name?: string; email?: string }>();
+          (Array.isArray(match?.participants) ? match.participants : []).forEach((p: any) => {
+            const pid = p?._id || p?.id; if (!pid) return; idToName.set(String(pid), { name: p?.name, email: p?.email });
+          });
+          const games: any[] = Array.isArray(result?.games) ? result.games : [];
+          for (const g of games) {
+            const team1: string[] = Array.isArray(g?.team1) ? g.team1.map((x: any) => String(x)) : [];
+            const team2: string[] = Array.isArray(g?.team2) ? g.team2.map((x: any) => String(x)) : [];
+            const myIn1 = team1.includes(myId);
+            const myIn2 = team2.includes(myId);
+            if (!myIn1 && !myIn2) continue; // не участвовал в этом гейме
+            const myTeam = myIn1 ? team1 : team2;
+            const oppTeam = myIn1 ? team2 : team1;
+            const s1 = Number(g?.team1Score ?? 0); const s2 = Number(g?.team2Score ?? 0);
+            const myWin = myIn1 ? (s1 > s2) : (s2 > s1);
+            const hasWinner = s1 !== s2;
+            // teammates
+            for (const pid of myTeam) {
+              if (pid === myId) continue;
+              const nm = idToName.get(pid) || {};
+              const row = teamMap.get(pid) || { name: nm.name || nm.email || pid, email: nm.email, wins: 0, losses: 0, games: 0 };
+              row.games += 1; if (hasWinner) { if (myWin) row.wins += 1; else row.losses += 1; }
+              teamMap.set(pid, row);
+            }
+            // opponents
+            for (const pid of oppTeam) {
+              const nm = idToName.get(pid) || {};
+              const row = oppMap.get(pid) || { name: nm.name || nm.email || pid, email: nm.email, wins: 0, losses: 0, games: 0 };
+              row.games += 1; if (hasWinner) { if (myWin) row.wins += 1; else row.losses += 1; }
+              oppMap.set(pid, row);
+            }
           }
         }));
 

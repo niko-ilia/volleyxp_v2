@@ -511,10 +511,7 @@ export default function MatchPage() {
                   <TableHead>Player</TableHead>
                   <TableHead className="text-right">W</TableHead>
                   <TableHead className="text-right">L</TableHead>
-                  <TableHead className="text-right">D</TableHead>
-                  <TableHead className="text-right">Games</TableHead>
                   <TableHead className="text-right">Δ rating</TableHead>
-                  <TableHead className="text-right">New rating</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -529,10 +526,7 @@ export default function MatchPage() {
                         <TableCell className="font-medium">{p.name || p.email}</TableCell>
                         <TableCell className="text-right">{p.wins}</TableCell>
                         <TableCell className="text-right">{p.losses}</TableCell>
-                        <TableCell className="text-right">{p.draws}</TableCell>
-                        <TableCell className="text-right">{p.games}</TableCell>
                         <TableCell className={`text-right ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>{deltaStr}</TableCell>
-                        <TableCell className="text-right">{typeof p.newRating === 'number' ? p.newRating.toFixed(2) : '—'}</TableCell>
                       </TableRow>
                     )
                   })}

@@ -69,16 +69,26 @@ export default function PublicProfilePage() {
         if (cancelled) return;
         setMatches(items);
         setPage(1);
-        const total = items.length;
-        const winsMatches = items.filter((it: any) => (Number(it.wins || 0) > Number(it.losses || 0))).length;
-        const lossesMatches = items.filter((it: any) => (Number(it.losses || 0) > Number(it.wins || 0))).length;
-        setSummary({ total, wins: winsMatches, losses: lossesMatches, winPct: total ? winsMatches / total : 0 });
+        // Align summary semantics with own profile: aggregate by games, not matches
+        // Consider only finished entries (presence of numeric wins/losses)
+        const finished = items.filter((it: any) => {
+          const w = Number(it?.wins ?? 0);
+          const l = Number(it?.losses ?? 0);
+          return Number.isFinite(w) || Number.isFinite(l);
+        });
+        const total = finished.length; // matches count (finished only)
+        let sumWins = 0, sumLosses = 0;
         const map: Record<string, { wins: number; losses: number }> = {};
-        for (const it of items) {
+        for (const it of finished) {
           const id = it.matchId || it._id;
-          if (id) map[id] = { wins: Number(it.wins || 0), losses: Number(it.losses || 0) };
+          const w = Number(it.wins ?? 0);
+          const l = Number(it.losses ?? 0);
+          if (id) map[id] = { wins: w, losses: l };
+          sumWins += w; sumLosses += l;
         }
         setStatsByMatchId(map);
+        const gamesTotal = sumWins + sumLosses;
+        setSummary({ total, wins: sumWins, losses: sumLosses, winPct: gamesTotal ? sumWins / gamesTotal : 0 });
       } catch (e: any) {
         if (!cancelled) setMatchesError(e?.message || 'Failed to load history');
       }

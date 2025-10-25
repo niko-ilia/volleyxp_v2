@@ -3,13 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { authFetchWithRetry } from "@/lib/auth/api";
+import { apiFetch, authFetchWithRetry } from "@/lib/auth/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
+import { saveAuth } from "@/lib/auth/storage";
 
 type ProfileResponse = {
   id: string;
@@ -36,6 +37,80 @@ export default function ProfilePage() {
   const [historyLoaded, setHistoryLoaded] = React.useState(false);
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
+  // Telegram linking UI state
+  const [tgPassword, setTgPassword] = React.useState("");
+  const [tgBusy, setTgBusy] = React.useState(false);
+  const [tgMsg, setTgMsg] = React.useState<string | null>(null);
+  const tgPasswordRef = React.useRef("");
+  const [isTgMiniApp, setIsTgMiniApp] = React.useState(false);
+  const widgetRef = React.useRef<HTMLDivElement | null>(null);
+  const TG_BOT = (process.env.NEXT_PUBLIC_TG_BOT_USERNAME as string) || (process.env.NEXT_PUBLIC_TG_BOT_NAME as string) || "";
+  const [canRenderWidget, setCanRenderWidget] = React.useState(false);
+  const [hostMsg, setHostMsg] = React.useState<string | null>(null);
+
+  React.useEffect(() => { tgPasswordRef.current = tgPassword; }, [tgPassword]);
+
+  React.useEffect(() => {
+    try {
+      const wa = (typeof window !== 'undefined' && (window as any).Telegram && (window as any).Telegram.WebApp)
+        ? (window as any).Telegram.WebApp
+        : null;
+      if (wa && wa.initData) setIsTgMiniApp(true);
+      if (typeof window !== 'undefined') {
+        const isHttps = window.location.protocol === 'https:';
+        const host = window.location.hostname;
+        const isLocal = host === 'localhost' || host === '127.0.0.1';
+        setCanRenderWidget(isHttps && !isLocal);
+        if (!isHttps || isLocal) setHostMsg('Telegram Login Widget requires an HTTPS public domain whitelisted in BotFather (/setdomain).');
+      }
+    } catch {}
+  }, []);
+
+  // Inject Telegram Login Widget in web (outside Mini App)
+  React.useEffect(() => {
+    if (isTgMiniApp || !TG_BOT || !canRenderWidget) return;
+    const w: any = typeof window !== 'undefined' ? window : {};
+    w.onTelegramAuth = async (payload: any) => {
+      try {
+        const email = profile?.email || (user as any)?.email;
+        const pwd = tgPasswordRef.current;
+        if (!pwd) { setTgMsg('Enter your password first'); return; }
+        setTgBusy(true);
+        const res = await apiFetch('/api/auth/link-telegram', {
+          method: 'POST',
+          body: JSON.stringify({ email, password: pwd, telegramAuthPayload: payload, telegramUser: payload }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error(`Link failed: ${res.status}`);
+        const data = await res.json();
+        saveAuth(data.token, null, data.user);
+        await refreshUser();
+        setTgMsg('Telegram linked');
+      } catch (e: any) {
+        setTgMsg(e?.message || 'Link failed');
+      } finally {
+        setTgBusy(false);
+      }
+    };
+    const holder = widgetRef.current;
+    try {
+      const script = document.createElement('script');
+      script.src = 'https://telegram.org/js/telegram-widget.js?22';
+      script.async = true;
+      script.setAttribute('data-telegram-login', TG_BOT);
+      script.setAttribute('data-size', 'large');
+      script.setAttribute('data-onauth', 'onTelegramAuth');
+      script.setAttribute('data-request-access', 'write');
+      if (holder) {
+        holder.innerHTML = '';
+        holder.appendChild(script);
+      }
+    } catch {}
+    return () => {
+      try { if (holder) holder.innerHTML = ''; } catch {}
+      try { delete (w as any).onTelegramAuth; } catch {}
+    };
+  }, [isTgMiniApp, TG_BOT, canRenderWidget, profile?.email, user, refreshUser]);
 
   React.useEffect(() => {
     if (!loading && !user) {
@@ -305,6 +380,73 @@ export default function ProfilePage() {
               <div className="text-sm font-medium">Registration date</div>
               <div className="text-sm text-muted-foreground">{createdAtFmt}</div>
             </div>
+
+          {/* Telegram linking */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Telegram</div>
+            {((user as any)?.telegramId || (profile as any)?.telegramId) ? (
+              <div className="text-sm text-muted-foreground">
+                Linked
+                {(user as any)?.telegramUsername ? ` (@${(user as any).telegramUsername})` : ""}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground">Link your Telegram to enable Mini App login and notifications.</div>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={tgPassword}
+                    onChange={(e) => setTgPassword(e.target.value)}
+                  />
+                  {isTgMiniApp ? (
+                    <Button disabled={tgBusy || !tgPassword.trim()} onClick={async () => {
+                    setTgMsg(null);
+                    setTgBusy(true);
+                    try {
+                      const email = profile?.email || (user as any)?.email;
+                      const w: any = typeof window !== 'undefined' ? window : {};
+                      const wa = w?.Telegram?.WebApp;
+                      if (wa && wa.initDataUnsafe && wa.initData) {
+                        const initData = wa.initData as string;
+                        const tgUser = wa.initDataUnsafe?.user || null;
+                        const res = await apiFetch('/api/auth/link-telegram', {
+                          method: 'POST',
+                          body: JSON.stringify({ email, password: tgPassword, telegramInitData: initData, telegramUser: tgUser }),
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        if (!res.ok) throw new Error(`Link failed: ${res.status}`);
+                        const data = await res.json();
+                        saveAuth(data.token, null, data.user);
+                        await refreshUser();
+                        setTgMsg('Telegram linked');
+                        return;
+                      }
+                      setTgMsg('Open this page in Telegram Mini App to link.');
+                    } catch (e: any) {
+                      setTgMsg(e?.message || 'Link failed');
+                    } finally {
+                      setTgBusy(false);
+                    }
+                  }}>
+                      {tgBusy ? 'Linking…' : 'Link Telegram'}
+                    </Button>
+                  ) : null}
+                </div>
+                {!isTgMiniApp && TG_BOT ? (
+                  <div className="flex flex-col items-center gap-2">
+                    {hostMsg ? (
+                      <div className="text-xs text-muted-foreground">{hostMsg}</div>
+                    ) : null}
+                    <div ref={widgetRef} />
+                  </div>
+                ) : null}
+                {tgMsg ? (
+                  <div className="text-xs text-muted-foreground">{tgMsg}</div>
+                ) : null}
+              </div>
+            )}
+          </div>
           </div>
         </CardContent>
       </Card>

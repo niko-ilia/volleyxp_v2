@@ -88,6 +88,8 @@ const getProfile = async (req, res) => {
       id: user._id,
       name: user.name,
       email: user.email,
+      telegramId: user.telegramId,
+      telegramUsername: user.telegramUsername,
       rating: user.rating,
       createdAt: user.createdAt,
       emailConfirmed: user.emailConfirmed,

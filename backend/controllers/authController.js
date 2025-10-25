@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { sendMail, sendPasswordResetMail } = require('../utils/mail');
 
@@ -147,6 +148,8 @@ const getMe = async (req, res) => {
       email: req.user.email,
       name: req.user.name,
       createdAt: req.user.createdAt,
+      telegramId: req.user.telegramId,
+      telegramUsername: req.user.telegramUsername,
       role: req.user.role, // legacy
       roles: Array.isArray(req.user.roles) && req.user.roles.length > 0 ? req.user.roles : [req.user.role],
       permissions: req.user.permissions,
@@ -266,22 +269,33 @@ const resetPassword = async (req, res) => {
 // Авторизация через Telegram
 const telegramAuth = async (req, res) => {
   try {
-    const { telegramUser } = req.body;
+    const { telegramUser, telegramInitData, telegramAuthPayload } = req.body || {};
+    // Verify Telegram signature when possible
+    const verified = verifyTelegramLogin({ telegramInitData, telegramAuthPayload });
+    if (!verified.ok) {
+      // Allow in absence of BOT TOKEN (e.g., local dev) but warn
+      if (process.env.TELEGRAM_BOT_TOKEN) {
+        return res.status(400).json({ message: verified.message || 'Invalid Telegram signature' });
+      } else {
+        console.warn('[TelegramAuth] Skipping signature verification because TELEGRAM_BOT_TOKEN is not set. DO NOT USE IN PROD');
+      }
+    }
+    const saneTelegramUser = verified.user || telegramUser;
     
-    if (!telegramUser || !telegramUser.id) {
+    if (!saneTelegramUser || !saneTelegramUser.id) {
       return res.status(400).json({ message: 'Invalid Telegram user data' });
     }
 
     // Ищем пользователя по Telegram ID
-    let user = await User.findOne({ telegramId: telegramUser.id });
+    let user = await User.findOne({ telegramId: saneTelegramUser.id });
     
     if (!user) {
       // Создаем нового пользователя
       user = new User({
-        name: telegramUser.name || `${telegramUser.first_name}${telegramUser.last_name ? ' ' + telegramUser.last_name : ''}`,
-        email: `tg_${telegramUser.id}@telegram.local`,
-        telegramId: telegramUser.id,
-        telegramUsername: telegramUser.username,
+        name: saneTelegramUser.name || `${saneTelegramUser.first_name || ''}${saneTelegramUser.last_name ? ' ' + saneTelegramUser.last_name : ''}`.trim() || 'Telegram User',
+        email: `tg_${saneTelegramUser.id}@telegram.local`,
+        telegramId: saneTelegramUser.id,
+        telegramUsername: saneTelegramUser.username,
         rating: 2.0,
         ratingHistory: []
       });
@@ -326,9 +340,19 @@ const telegramAuth = async (req, res) => {
 // Привязка существующего аккаунта к Telegram
 const linkTelegramAccount = async (req, res) => {
   try {
-    const { email, password, telegramUser, force } = req.body;
+    const { email, password, telegramUser, telegramInitData, telegramAuthPayload, force } = req.body || {};
+    // Verify Telegram signature when possible
+    const verified = verifyTelegramLogin({ telegramInitData, telegramAuthPayload });
+    if (!verified.ok) {
+      if (process.env.TELEGRAM_BOT_TOKEN) {
+        return res.status(400).json({ message: verified.message || 'Invalid Telegram signature' });
+      } else {
+        console.warn('[LinkTelegram] Skipping signature verification because TELEGRAM_BOT_TOKEN is not set. DO NOT USE IN PROD');
+      }
+    }
+    const saneTelegramUser = verified.user || telegramUser;
     
-    if (!email || !password || !telegramUser || !telegramUser.id) {
+    if (!email || !password || !saneTelegramUser || !saneTelegramUser.id) {
       return res.status(400).json({ message: 'Email, password and Telegram user data are required' });
     }
 
@@ -345,7 +369,7 @@ const linkTelegramAccount = async (req, res) => {
     }
 
     // Проверяем, не привязан ли уже этот Telegram ID к другому аккаунту
-    const existingTelegramUser = await User.findOne({ telegramId: telegramUser.id });
+    const existingTelegramUser = await User.findOne({ telegramId: saneTelegramUser.id });
     if (existingTelegramUser && existingTelegramUser._id.toString() !== user._id.toString()) {
       // Если force и telegram-only аккаунт — удаляем его и продолжаем
       if (
@@ -362,12 +386,12 @@ const linkTelegramAccount = async (req, res) => {
     }
 
     // Привязываем Telegram ID к существующему аккаунту
-    user.telegramId = telegramUser.id;
-    user.telegramUsername = telegramUser.username;
+    user.telegramId = saneTelegramUser.id;
+    user.telegramUsername = saneTelegramUser.username;
     
     // Обновляем имя, если оно не было установлено
     if (!user.name || user.name === 'User') {
-      user.name = telegramUser.name || `${telegramUser.first_name}${telegramUser.last_name ? ' ' + telegramUser.last_name : ''}`;
+      user.name = saneTelegramUser.name || `${saneTelegramUser.first_name || ''}${saneTelegramUser.last_name ? ' ' + saneTelegramUser.last_name : ''}`.trim() || user.name;
     }
     
     await user.save();
@@ -408,3 +432,82 @@ module.exports = {
   telegramAuth,
   linkTelegramAccount
 }; 
+
+// --- Helpers ---
+function verifyTelegramLogin({ telegramInitData, telegramAuthPayload }) {
+  try {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return { ok: false, message: 'Missing TELEGRAM_BOT_TOKEN' };
+    }
+    if (telegramInitData && typeof telegramInitData === 'string') {
+      return verifyInitDataString(telegramInitData, botToken);
+    }
+    if (telegramAuthPayload && typeof telegramAuthPayload === 'object') {
+      return verifyPayloadObject(telegramAuthPayload, botToken);
+    }
+    // Fallback: if only telegramUser was passed, we cannot verify
+    return { ok: false, message: 'No Telegram signature provided' };
+  } catch (e) {
+    return { ok: false, message: e?.message || 'Verification error' };
+  }
+}
+
+function verifyInitDataString(initData, botToken) {
+  // initData is a querystring-like string: key=value&key=value
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  if (!hash) return { ok: false, message: 'No hash in initData' };
+  params.delete('hash');
+  // Build data_check_string from remaining params in alphabetical order of keys
+  const entries = [];
+  for (const [k, v] of params.entries()) entries.push(`${k}=${v}`);
+  entries.sort();
+  const dataCheckString = entries.join('\n');
+  const secretKey = crypto.createHash('sha256').update(botToken).digest();
+  const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  if (hmac !== hash) return { ok: false, message: 'Invalid hash' };
+  // Freshness check (optional but recommended)
+  const authDate = Number(params.get('auth_date') || '0');
+  if (authDate && Math.abs(Date.now() / 1000 - authDate) > 24 * 60 * 60) {
+    return { ok: false, message: 'Auth data expired' };
+  }
+  // Extract user json if present
+  let userObj;
+  const userStr = params.get('user');
+  if (userStr) {
+    try { userObj = JSON.parse(userStr); } catch {}
+  }
+  return { ok: true, user: normalizeTelegramUser(userObj) };
+}
+
+function verifyPayloadObject(payload, botToken) {
+  // payload contains fields like id, first_name, last_name, username, photo_url, auth_date, hash
+  const { hash, ...rest } = payload || {};
+  if (!hash) return { ok: false, message: 'No hash in payload' };
+  const pairs = Object.keys(rest)
+    .filter((k) => rest[k] !== undefined && rest[k] !== null)
+    .sort()
+    .map((k) => `${k}=${rest[k]}`);
+  const dataCheckString = pairs.join('\n');
+  const secretKey = crypto.createHash('sha256').update(botToken).digest();
+  const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  if (hmac !== hash) return { ok: false, message: 'Invalid hash' };
+  const authDate = Number(rest.auth_date || '0');
+  if (authDate && Math.abs(Date.now() / 1000 - authDate) > 24 * 60 * 60) {
+    return { ok: false, message: 'Auth data expired' };
+  }
+  return { ok: true, user: normalizeTelegramUser(rest) };
+}
+
+function normalizeTelegramUser(u) {
+  if (!u) return null;
+  const id = typeof u.id === 'string' ? Number(u.id) : u.id;
+  return {
+    id,
+    username: u.username,
+    first_name: u.first_name,
+    last_name: u.last_name,
+    name: u.name || [u.first_name, u.last_name].filter(Boolean).join(' ').trim(),
+  };
+}

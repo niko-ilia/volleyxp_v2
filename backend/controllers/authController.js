@@ -328,7 +328,8 @@ const telegramAuth = async (req, res) => {
         name: user.name,
         email: user.email,
         rating: user.rating,
-        telegramId: user.telegramId
+        telegramId: user.telegramId,
+        telegramUsername: user.telegramUsername
       }
     });
   } catch (error) {
@@ -410,7 +411,8 @@ const linkTelegramAccount = async (req, res) => {
         name: user.name,
         email: user.email,
         rating: user.rating,
-        telegramId: user.telegramId
+        telegramId: user.telegramId,
+        telegramUsername: user.telegramUsername
       }
     });
   } catch (error) {
@@ -476,7 +478,8 @@ const linkTelegramForAuthed = async (req, res) => {
         name: user.name,
         email: user.email,
         rating: user.rating,
-        telegramId: user.telegramId
+        telegramId: user.telegramId,
+        telegramUsername: user.telegramUsername
       }
     });
   } catch (error) {

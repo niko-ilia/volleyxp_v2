@@ -73,6 +73,8 @@ const updateProfile = async (req, res) => {
       id: user._id,
       name: user.name,
       email: user.email,
+      telegramId: user.telegramId,
+      telegramUsername: user.telegramUsername,
       preferences: user.preferences,
     });
   } catch (error) {

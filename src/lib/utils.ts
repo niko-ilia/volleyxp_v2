@@ -31,17 +31,23 @@ export function buildShareMessage(m: ShareBuildInput) {
   lines.push(`📍 ${m.place}`);
   lines.push(`${m.isPrivate ? "🔒 Private" : "🌐 Public"}`);
   lines.push(`🎯 Player Level: ${m.level}`);
-  const names = Array.from(
-    new Set(
-      (m.participants || [])
-        .map((p: any) => (typeof p === "string" ? p : (p?.name || p?.email)))
-        .filter(Boolean)
-    )
-  );
-  // List all current players, one per line
-  for (const n of names) lines.push(`✅ ${n}`);
+  // Build a de-duplicated map of displayName -> rating (if present)
+  const nameToRating = new Map<string, number | undefined>();
+  for (const p of (m.participants || [])) {
+    const label = typeof p === "string" ? p : (p?.name || p?.email);
+    if (!label) continue;
+    if (!nameToRating.has(label)) {
+      const r: unknown = typeof p === "object" && p ? (p as any).rating : undefined;
+      nameToRating.set(label, typeof r === "number" && Number.isFinite(r) ? r : undefined);
+    }
+  }
+  // List all current players, one per line, append rating if available
+  for (const [label, r] of nameToRating.entries()) {
+    const suffix = typeof r === "number" ? ` (${r.toFixed(2)})` : "";
+    lines.push(`✅ ${label}${suffix}`);
+  }
   // Pad up to 6
-  const empty = Math.max(0, 6 - names.length);
+  const empty = Math.max(0, 6 - nameToRating.size);
   for (let i = 0; i < empty; i++) lines.push("⚪ ??");
   return lines.join("\n");
 }

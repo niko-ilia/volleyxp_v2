@@ -82,6 +82,12 @@ export default function MatchPage() {
   const [resultsOpen, setResultsOpen] = useState(false);
   const shareText = useMemo(() => {
     if (!match) return "";
+    // Prefer join snapshot rating for share text; fallback to current rating
+    const joinSnapByUser = new Map((match.joinSnapshots || []).map(s => [s.userId, s.rating]));
+    const participantsForShare = (match.participants || []).map((p) => ({
+      ...p,
+      rating: joinSnapByUser.has(p._id) ? (joinSnapByUser.get(p._id) as number) : p.rating,
+    }));
     const msg = buildShareMessage({
       title: match.title,
       place: match.place,
@@ -89,7 +95,7 @@ export default function MatchPage() {
       level: match.level,
       startDateTime: match.startDateTime,
       duration: match.duration,
-      participants: match.participants,
+      participants: participantsForShare,
       creator: match.creator,
     });
     const origin = typeof window !== "undefined" ? window.location.origin : "";

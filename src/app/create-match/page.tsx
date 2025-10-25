@@ -6,6 +6,7 @@ import { authFetchWithRetry } from "@/lib/auth/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildShareMessage } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ type Level = "Beginner" | "Medium" | "Hard";
 
 export default function CreateMatchPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(""); // yyyy-mm-dd
   const [startTime, setStartTime] = useState("09:00");
@@ -118,6 +120,16 @@ export default function CreateMatchPage() {
       }
       const created = await res.json();
       // Prepare share data and open modal
+      // Enrich participants with current user's rating (creator)
+      const baseParticipants = Array.isArray(created.participants) ? created.participants : [];
+      const participantsForShare = baseParticipants.map((p: any) => {
+        if (!p) return p;
+        if (user && (p._id === (user._id || (user as any).id) || p.email === user.email)) {
+          return { ...p, rating: typeof user.rating === "number" ? user.rating : p.rating };
+        }
+        return p;
+      });
+
       const msg = buildShareMessage({
         title: created.title,
         place: created.place,
@@ -125,7 +137,7 @@ export default function CreateMatchPage() {
         level: created.level,
         startDateTime: created.startDateTime,
         duration: created.duration,
-        participants: Array.isArray(created.participants) ? created.participants : [],
+        participants: participantsForShare,
         creator: created.creator,
       });
       const url = `/match/${created._id}`;

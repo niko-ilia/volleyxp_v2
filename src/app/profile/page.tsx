@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
 import { saveAuth } from "@/lib/auth/storage";
+import Image from "next/image";
 
 type ProfileResponse = {
   id: string;
@@ -47,6 +48,10 @@ export default function ProfilePage() {
   const TG_BOT = (process.env.NEXT_PUBLIC_TG_BOT_USERNAME as string) || (process.env.NEXT_PUBLIC_TG_BOT_NAME as string) || "";
   const [canRenderWidget, setCanRenderWidget] = React.useState(false);
   const [hostMsg, setHostMsg] = React.useState<string | null>(null);
+  const tgUsername = (user as any)?.telegramUsername || (profile as any)?.telegramUsername || null;
+  const tgId = (user as any)?.telegramId || (profile as any)?.telegramId || null;
+  const isLinked = Boolean(tgId);
+  const [tgAvatar, setTgAvatar] = React.useState<string | null>(null);
 
   // no password now
 
@@ -110,6 +115,21 @@ export default function ProfilePage() {
       try { delete (w as any).onTelegramAuth; } catch {}
     };
   }, [isTgMiniApp, TG_BOT, canRenderWidget, profile?.email, user, refreshUser]);
+
+  // Resolve avatar URL if linked
+  React.useEffect(() => {
+    if (!isLinked) { setTgAvatar(null); return; }
+    let url: string | null = null;
+    try {
+      const w: any = typeof window !== 'undefined' ? window : {};
+      const pu = w?.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url;
+      if (pu && typeof pu === 'string') url = pu;
+    } catch {}
+    if (!url && tgUsername) {
+      url = `https://t.me/i/userpic/320/${tgUsername}.jpg`;
+    }
+    setTgAvatar(url);
+  }, [isLinked, tgUsername]);
 
   React.useEffect(() => {
     if (!loading && !user) {
@@ -383,12 +403,23 @@ export default function ProfilePage() {
           {/* Telegram linking */}
           <div className="space-y-2">
             <div className="text-sm font-medium">Telegram</div>
-            {((user as any)?.telegramId || (profile as any)?.telegramId) ? (
-              <div className="text-sm text-muted-foreground">
-                Linked
-                {(user as any)?.telegramUsername ? ` (@${(user as any).telegramUsername})` : ""}
-              </div>
-            ) : (
+            <div className="flex items-center gap-3">
+              {isLinked ? (
+                <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-green-600 text-white">Linked</span>
+              ) : (
+                <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">Not linked</span>
+              )}
+              {isLinked ? (
+                <div className="flex items-center gap-2">
+                  {tgAvatar ? (
+                    // Use img to avoid Next.js domain allowlist
+                    <img src={tgAvatar} alt="Telegram avatar" className="h-8 w-8 rounded-full object-cover" />
+                  ) : null}
+                  <div className="text-sm">{tgUsername ? `@${tgUsername}` : `ID: ${tgId}`}</div>
+                </div>
+              ) : null}
+            </div>
+            {!isLinked ? (
               <div className="space-y-2">
                 <div className="text-xs text-muted-foreground">Link your Telegram to enable Mini App login and notifications.</div>
                 <div className="flex gap-2 items-center">
@@ -439,7 +470,7 @@ export default function ProfilePage() {
                   <div className="text-xs text-muted-foreground">{tgMsg}</div>
                 ) : null}
               </div>
-            )}
+            ) : null}
           </div>
           </div>
         </CardContent>

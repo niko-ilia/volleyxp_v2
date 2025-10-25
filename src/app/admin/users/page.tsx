@@ -17,6 +17,8 @@ type UserItem = {
   _id: string;
   name: string;
   email: string;
+  telegramUsername?: string | null;
+  telegramId?: number | string | null;
   roles?: string[];
   role?: string;
   isBlocked?: boolean;
@@ -120,6 +122,7 @@ export default function UsersPage() {
             <TableRow>
               <TableHead>Имя</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Telegram</TableHead>
               <TableHead>Роли</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead>Рейтинг</TableHead>
@@ -134,6 +137,7 @@ export default function UsersPage() {
                 <TableRow key={u._id}>
                   <TableCell>{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
+                  <TableCell>{u.telegramUsername ? `@${u.telegramUsername}` : (u.telegramId ? `ID: ${u.telegramId}` : '—')}</TableCell>
                   <TableCell className="whitespace-nowrap">{roles}</TableCell>
                   <TableCell>
                     {u.isBlocked ? <Badge variant="destructive">Заблокирован</Badge> : <Badge variant="secondary">Активен</Badge>}

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, sendConfirmation, requestPasswordReset, resetPassword, telegramAuth, linkTelegramAccount } = require('../controllers/authController');
+const { register, login, getMe, sendConfirmation, requestPasswordReset, resetPassword, telegramAuth, linkTelegramAccount, linkTelegramForAuthed } = require('../controllers/authController');
 const auth = require('../middleware/auth');
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
@@ -16,6 +16,9 @@ router.post('/telegram', telegramAuth);
 
 // POST /api/auth/link-telegram
 router.post('/link-telegram', linkTelegramAccount);
+
+// POST /api/auth/link-telegram-authed (JWT)
+router.post('/link-telegram-authed', auth, linkTelegramForAuthed);
 
 // POST /api/auth/refresh - Refresh token endpoint
 router.post('/refresh', async (req, res) => {

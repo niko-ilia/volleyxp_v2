@@ -18,6 +18,8 @@ type ProfileResponse = {
   email: string;
   rating?: number;
   createdAt?: string;
+  telegramId?: number | string | null;
+  telegramUsername?: string | null;
 };
 
 export default function ProfilePage() {
@@ -38,17 +40,15 @@ export default function ProfilePage() {
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
   // Telegram linking UI state
-  const [tgPassword, setTgPassword] = React.useState("");
   const [tgBusy, setTgBusy] = React.useState(false);
   const [tgMsg, setTgMsg] = React.useState<string | null>(null);
-  const tgPasswordRef = React.useRef("");
   const [isTgMiniApp, setIsTgMiniApp] = React.useState(false);
   const widgetRef = React.useRef<HTMLDivElement | null>(null);
   const TG_BOT = (process.env.NEXT_PUBLIC_TG_BOT_USERNAME as string) || (process.env.NEXT_PUBLIC_TG_BOT_NAME as string) || "";
   const [canRenderWidget, setCanRenderWidget] = React.useState(false);
   const [hostMsg, setHostMsg] = React.useState<string | null>(null);
 
-  React.useEffect(() => { tgPasswordRef.current = tgPassword; }, [tgPassword]);
+  // no password now
 
   React.useEffect(() => {
     try {
@@ -73,17 +73,16 @@ export default function ProfilePage() {
     w.onTelegramAuth = async (payload: any) => {
       try {
         const email = profile?.email || (user as any)?.email;
-        const pwd = tgPasswordRef.current;
-        if (!pwd) { setTgMsg('Enter your password first'); return; }
         setTgBusy(true);
-        const res = await apiFetch('/api/auth/link-telegram', {
+        const res = await apiFetch('/api/auth/link-telegram-authed', {
           method: 'POST',
-          body: JSON.stringify({ email, password: pwd, telegramAuthPayload: payload, telegramUser: payload }),
+          body: JSON.stringify({ email, telegramAuthPayload: payload, telegramUser: payload }),
           headers: { 'Content-Type': 'application/json' },
         });
         if (!res.ok) throw new Error(`Link failed: ${res.status}`);
         const data = await res.json();
         saveAuth(data.token, null, data.user);
+        setProfile((prev) => prev ? { ...prev, telegramId: data.user?.telegramId ?? (prev as any).telegramId, telegramUsername: data.user?.telegramUsername ?? (prev as any).telegramUsername } as any : prev);
         await refreshUser();
         setTgMsg('Telegram linked');
       } catch (e: any) {
@@ -393,14 +392,8 @@ export default function ProfilePage() {
               <div className="space-y-2">
                 <div className="text-xs text-muted-foreground">Link your Telegram to enable Mini App login and notifications.</div>
                 <div className="flex gap-2 items-center">
-                  <Input
-                    type="password"
-                    placeholder="Confirm your password"
-                    value={tgPassword}
-                    onChange={(e) => setTgPassword(e.target.value)}
-                  />
                   {isTgMiniApp ? (
-                    <Button disabled={tgBusy || !tgPassword.trim()} onClick={async () => {
+                    <Button disabled={tgBusy} onClick={async () => {
                     setTgMsg(null);
                     setTgBusy(true);
                     try {
@@ -410,16 +403,17 @@ export default function ProfilePage() {
                       if (wa && wa.initDataUnsafe && wa.initData) {
                         const initData = wa.initData as string;
                         const tgUser = wa.initDataUnsafe?.user || null;
-                        const res = await apiFetch('/api/auth/link-telegram', {
+                          const res = await apiFetch('/api/auth/link-telegram-authed', {
                           method: 'POST',
-                          body: JSON.stringify({ email, password: tgPassword, telegramInitData: initData, telegramUser: tgUser }),
+                            body: JSON.stringify({ email, telegramInitData: initData, telegramUser: tgUser }),
                           headers: { 'Content-Type': 'application/json' }
                         });
                         if (!res.ok) throw new Error(`Link failed: ${res.status}`);
-                        const data = await res.json();
-                        saveAuth(data.token, null, data.user);
-                        await refreshUser();
-                        setTgMsg('Telegram linked');
+                          const data = await res.json();
+                          saveAuth(data.token, null, data.user);
+                          setProfile((prev) => prev ? { ...prev, telegramId: data.user?.telegramId ?? (prev as any).telegramId, telegramUsername: data.user?.telegramUsername ?? (prev as any).telegramUsername } as any : prev);
+                          await refreshUser();
+                          setTgMsg('Telegram linked');
                         return;
                       }
                       setTgMsg('Open this page in Telegram Mini App to link.');

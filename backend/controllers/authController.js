@@ -419,6 +419,72 @@ const linkTelegramAccount = async (req, res) => {
   }
 };
 
+// Привязка Telegram к уже аутентифицированному пользователю (без пароля)
+const linkTelegramForAuthed = async (req, res) => {
+  try {
+    const { telegramUser, telegramInitData, telegramAuthPayload, force } = req.body || {};
+    if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+
+    const verified = verifyTelegramLogin({ telegramInitData, telegramAuthPayload });
+    if (!verified.ok) {
+      if (process.env.TELEGRAM_BOT_TOKEN) {
+        return res.status(400).json({ message: verified.message || 'Invalid Telegram signature' });
+      } else {
+        console.warn('[LinkTelegramAuthed] Skipping signature verification because TELEGRAM_BOT_TOKEN is not set. DO NOT USE IN PROD');
+      }
+    }
+    const saneTelegramUser = verified.user || telegramUser;
+    if (!saneTelegramUser || !saneTelegramUser.id) {
+      return res.status(400).json({ message: 'Telegram user data is required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const existingTelegramUser = await User.findOne({ telegramId: saneTelegramUser.id });
+    if (existingTelegramUser && existingTelegramUser._id.toString() !== user._id.toString()) {
+      if (
+        force === true &&
+        existingTelegramUser.email &&
+        existingTelegramUser.email.startsWith('tg_') &&
+        existingTelegramUser.email.endsWith('@telegram.local') &&
+        (!existingTelegramUser.password || existingTelegramUser.password === '')
+      ) {
+        await User.deleteOne({ _id: existingTelegramUser._id });
+      } else {
+        return res.status(400).json({ message: 'This Telegram account is already linked to another user' });
+      }
+    }
+
+    user.telegramId = saneTelegramUser.id;
+    user.telegramUsername = saneTelegramUser.username;
+    if (!user.name || user.name === 'User') {
+      user.name = saneTelegramUser.name || `${saneTelegramUser.first_name || ''}${saneTelegramUser.last_name ? ' ' + saneTelegramUser.last_name : ''}`.trim() || user.name;
+    }
+    await user.save();
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        rating: user.rating,
+        telegramId: user.telegramId
+      }
+    });
+  } catch (error) {
+    console.error('Link Telegram (authed) error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 
 module.exports = {
@@ -430,7 +496,8 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   telegramAuth,
-  linkTelegramAccount
+  linkTelegramAccount,
+  linkTelegramForAuthed
 }; 
 
 // --- Helpers ---

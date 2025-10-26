@@ -451,6 +451,11 @@ export default function MatchPage() {
                 </AlertDialogContent>
               </AlertDialog>
             )}
+            {(isResultConfirmed || match.status === 'finished') && (
+              <Button asChild className="shrink-0">
+                <Link href={`/match/${match._id}/confirm`}>View result</Link>
+              </Button>
+            )}
             {canAddResults && (
               <Button onClick={openAddResults} className="shadow shrink-0">Add result</Button>
             )}

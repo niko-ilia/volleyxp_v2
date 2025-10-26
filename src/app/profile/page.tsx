@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
-import { saveAuth } from "@/lib/auth/storage";
+import { saveAuth, getToken, getRefreshToken } from "@/lib/auth/storage";
 import Image from "next/image";
 
 type ProfileResponse = {
@@ -138,7 +138,10 @@ export default function ProfilePage() {
       script.setAttribute('data-request-access', 'write');
       try {
         const origin = window.location.origin;
-        script.setAttribute('data-auth-url', `${origin}/auth/tg-bridge`);
+        const t = getToken();
+        const r = getRefreshToken();
+        const hash = new URLSearchParams({ t: t || '', r: r || '' }).toString();
+        script.setAttribute('data-auth-url', `${origin}/auth/tg-bridge#${hash}`);
       } catch {}
       if (holder) {
         holder.innerHTML = '';

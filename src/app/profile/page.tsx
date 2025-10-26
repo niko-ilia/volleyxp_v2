@@ -106,7 +106,7 @@ export default function ProfilePage() {
         setTgBusy(true);
         let res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
           method: 'POST',
-          body: JSON.stringify({ email, telegramAuthPayload: payload, telegramUser: payload }),
+          body: JSON.stringify({ email, telegramAuthPayload: payload, telegramUser: payload, jwt: getToken() || undefined }),
           headers: { 'Content-Type': 'application/json' },
         });
         if (!res.ok) {
@@ -486,7 +486,7 @@ export default function ProfilePage() {
                         const tgUser = wa.initDataUnsafe?.user || null;
                           let res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
                           method: 'POST',
-                            body: JSON.stringify({ email, telegramInitData: initData, telegramUser: tgUser }),
+                            body: JSON.stringify({ email, telegramInitData: initData, telegramUser: tgUser, jwt: getToken() || undefined }),
                           headers: { 'Content-Type': 'application/json' }
                         });
                         if (!res.ok) {

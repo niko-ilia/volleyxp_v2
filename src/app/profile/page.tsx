@@ -139,9 +139,9 @@ export default function ProfilePage() {
       try {
         const origin = window.location.origin;
         const t = getToken();
-        const r = getRefreshToken();
-        const hash = new URLSearchParams({ t: t || '', r: r || '' }).toString();
-        script.setAttribute('data-auth-url', `${origin}/auth/tg-bridge#${hash}`);
+        const url = new URL(`${origin}/auth/tg-bridge`);
+        if (t) url.searchParams.set('jwt', t);
+        script.setAttribute('data-auth-url', url.toString());
       } catch {}
       if (holder) {
         holder.innerHTML = '';

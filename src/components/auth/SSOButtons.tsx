@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth/api";
 import { saveAuth } from "@/lib/auth/storage";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 export default function SSOButtons({ className }: Props) {
   const apiBase = process.env.NEXT_PUBLIC_API_BASE || "";
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [isTgMiniApp, setIsTgMiniApp] = useState(false);
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const TG_BOT = (process.env.NEXT_PUBLIC_TG_BOT_USERNAME as string) || (process.env.NEXT_PUBLIC_TG_BOT_NAME as string) || "";
@@ -39,13 +41,14 @@ export default function SSOButtons({ className }: Props) {
 
   // Listen bridge messages (data-auth-url fallback)
   useEffect(() => {
-    const onMsg = (e: MessageEvent) => {
+    const onMsg = async (e: MessageEvent) => {
       if (!e?.data) return;
       if (e.data.type === 'tg_login_result' && e.data.data) {
         try {
           const d = e.data.data;
           if (d?.token && d?.user) {
             saveAuth(d.token, d.refreshToken ?? null, d.user);
+            try { await refreshUser(); } catch {}
             router.push('/');
           }
         } catch {}
@@ -70,6 +73,7 @@ export default function SSOButtons({ className }: Props) {
           if (!res.ok) throw new Error(`TG auth failed: ${res.status}`);
           const data = await res.json();
           saveAuth(data.token, data.refreshToken ?? null, data.user);
+          try { await refreshUser(); } catch {}
           router.push("/");
         } catch (e) {
           console.error(e);
@@ -117,6 +121,7 @@ export default function SSOButtons({ className }: Props) {
         if (!res.ok) throw new Error(`TG auth failed: ${res.status}`);
         const data = await res.json();
         saveAuth(data.token, data.refreshToken ?? null, data.user);
+        try { await refreshUser(); } catch {}
         router.push("/");
         return;
       }

@@ -79,12 +79,23 @@ export default function ProfilePage() {
       try {
         const email = profile?.email || (user as any)?.email;
         setTgBusy(true);
-        const res = await apiFetch('/api/auth/link-telegram-authed', {
+        let res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
           method: 'POST',
           body: JSON.stringify({ email, telegramAuthPayload: payload, telegramUser: payload }),
           headers: { 'Content-Type': 'application/json' },
         });
-        if (!res.ok) throw new Error(`Link failed: ${res.status}`);
+        if (!res.ok) {
+          let msg = '';
+          try { msg = await res.text(); } catch {}
+          if (res.status === 400 && /already linked/i.test(msg)) {
+            res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
+              method: 'POST',
+              body: JSON.stringify({ email, telegramAuthPayload: payload, telegramUser: payload, force: true }),
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+          if (!res.ok) throw new Error(msg || `Link failed: ${res.status}`);
+        }
         const data = await res.json();
         saveAuth(data.token, null, data.user);
         setProfile((prev) => prev ? { ...prev, telegramId: data.user?.telegramId ?? (prev as any).telegramId, telegramUsername: data.user?.telegramUsername ?? (prev as any).telegramUsername } as any : prev);
@@ -439,12 +450,23 @@ export default function ProfilePage() {
                       if (wa && wa.initDataUnsafe && wa.initData) {
                         const initData = wa.initData as string;
                         const tgUser = wa.initDataUnsafe?.user || null;
-                          const res = await apiFetch('/api/auth/link-telegram-authed', {
+                          let res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
                           method: 'POST',
                             body: JSON.stringify({ email, telegramInitData: initData, telegramUser: tgUser }),
                           headers: { 'Content-Type': 'application/json' }
                         });
-                        if (!res.ok) throw new Error(`Link failed: ${res.status}`);
+                        if (!res.ok) {
+                          let msg = '';
+                          try { msg = await res.text(); } catch {}
+                          if (res.status === 400 && /already linked/i.test(msg)) {
+                            res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
+                              method: 'POST',
+                              body: JSON.stringify({ email, telegramInitData: initData, telegramUser: tgUser, force: true }),
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                          }
+                          if (!res.ok) throw new Error(msg || `Link failed: ${res.status}`);
+                        }
                           const data = await res.json();
                           saveAuth(data.token, null, data.user);
                           setProfile((prev) => prev ? { ...prev, telegramId: data.user?.telegramId ?? (prev as any).telegramId, telegramUsername: data.user?.telegramUsername ?? (prev as any).telegramUsername } as any : prev);

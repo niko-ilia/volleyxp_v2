@@ -13,7 +13,7 @@ export default function TgBridgePage() {
         const params: Record<string, string> = {};
         url.searchParams.forEach((v, k) => { params[k] = v; });
         const telegramAuthPayload = params.user ? JSON.parse(params.user) : params;
-        // Rehydrate token from query if widget opened the page without cookies
+        // 1) Try token from query
         try {
           const token = url.searchParams.get('jwt');
           if (token) {
@@ -28,6 +28,29 @@ export default function TgBridgePage() {
             return;
           }
         } catch {}
+        // 2) Request token from parent via postMessage handshake
+        const tokenFromParent: string | null = await new Promise((resolve) => {
+          let done = false;
+          const onMsg = (e: MessageEvent) => {
+            if (e?.data?.type === 'tg_bridge_token' && typeof e.data.token === 'string') {
+              done = true; window.removeEventListener('message', onMsg); resolve(e.data.token);
+            }
+          };
+          window.addEventListener('message', onMsg);
+          window.parent?.postMessage({ type: 'tg_bridge_need_token' }, '*');
+          setTimeout(() => { if (!done) resolve(null); }, 1200);
+        });
+        if (tokenFromParent) {
+          const res = await fetch(`/api/auth/link-telegram-authed?jwt=${encodeURIComponent(tokenFromParent)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload })
+          });
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          window.parent?.postMessage({ type: 'tg_link_result', ok: true, data }, '*');
+          return;
+        }
         const res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
           method: 'POST',
           body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload }),

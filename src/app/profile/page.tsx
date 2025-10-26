@@ -90,6 +90,16 @@ export default function ProfilePage() {
       }
     };
     try { window.addEventListener('message', onMsg); } catch {}
+    // Respond to bridge token requests
+    const onNeedToken = (e: MessageEvent) => {
+      if (e?.data?.type === 'tg_bridge_need_token') {
+        const t = getToken();
+        if (t) {
+          try { (e.source as WindowProxy)?.postMessage({ type: 'tg_bridge_token', token: t }, '*'); } catch {}
+        }
+      }
+    };
+    try { window.addEventListener('message', onNeedToken); } catch {}
     w.onTelegramAuth = async (payload: any) => {
       try {
         const email = profile?.email || (user as any)?.email;
@@ -152,6 +162,7 @@ export default function ProfilePage() {
       try { if (holder) holder.innerHTML = ''; } catch {}
       try { delete (w as any).onTelegramAuth; } catch {}
       try { window.removeEventListener('message', onMsg); } catch {}
+      try { window.removeEventListener('message', onNeedToken); } catch {}
     };
   }, [isTgMiniApp, TG_BOT, canRenderWidget, profile?.email, user, refreshUser]);
 

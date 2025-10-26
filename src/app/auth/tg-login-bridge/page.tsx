@@ -10,8 +10,17 @@ export default function TgLoginBridgePage() {
       try {
         const url = new URL(window.location.href);
         const params: Record<string, string> = {};
+        // query params
         url.searchParams.forEach((v, k) => { params[k] = v; });
-        const telegramAuthPayload = params.user ? JSON.parse(params.user) : params;
+        // hash params (oauth.telegram.org часто кладёт сюда)
+        try {
+          const h = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
+          const hp = new URLSearchParams(h);
+          hp.forEach((v, k) => { params[k] = v; });
+        } catch {}
+        // Some providers return tgAuthResult with JSON string
+        const rawUser = params.user || params.tgAuthResult || '';
+        const telegramAuthPayload = rawUser ? JSON.parse(rawUser) : params;
         const res = await fetch('/api/auth/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

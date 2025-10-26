@@ -17,9 +17,9 @@ export default function TgBridgePage() {
         try {
           const token = url.searchParams.get('jwt');
           if (token) {
-            const res = await fetch('/api/auth/link-telegram-authed', {
+            const res = await fetch(`/api/auth/link-telegram-authed?jwt=${encodeURIComponent(token)}`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload })
             });
             if (!res.ok) throw new Error(await res.text());

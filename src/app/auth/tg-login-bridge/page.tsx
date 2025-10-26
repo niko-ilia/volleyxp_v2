@@ -51,7 +51,19 @@ export default function TgLoginBridgePage() {
         }
         const data = await res.json();
         setStatus('Authorized');
-        window.parent?.postMessage({ type: 'tg_login_result', ok: true, data }, '*');
+        try {
+          // Save tokens locally in case we opened in the same tab (no parent window)
+          if (data?.token) localStorage.setItem('volley_token', data.token);
+          if (data?.refreshToken) localStorage.setItem('volley_refresh_token', data.refreshToken);
+          if (data?.user) localStorage.setItem('volley_user', JSON.stringify(data.user));
+        } catch {}
+        try { window.parent?.postMessage({ type: 'tg_login_result', ok: true, data }, '*'); } catch {}
+        // If we are top-level (no opener/parent), redirect to home
+        try {
+          if (window.top === window.self) {
+            window.location.replace('/');
+          }
+        } catch {}
       } catch (e: any) {
         setStatus(`Error: ${e?.message || 'unknown'}`);
         window.parent?.postMessage({ type: 'tg_login_result', ok: false, error: e?.message || 'unknown' }, '*');

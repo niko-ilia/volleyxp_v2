@@ -37,6 +37,24 @@ export default function SSOButtons({ className }: Props) {
     } catch {}
   }, []);
 
+  // Listen bridge messages (data-auth-url fallback)
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (!e?.data) return;
+      if (e.data.type === 'tg_login_result' && e.data.data) {
+        try {
+          const d = e.data.data;
+          if (d?.token && d?.user) {
+            saveAuth(d.token, d.refreshToken ?? null, d.user);
+            router.push('/');
+          }
+        } catch {}
+      }
+    };
+    try { window.addEventListener('message', onMsg); } catch {}
+    return () => { try { window.removeEventListener('message', onMsg); } catch {} };
+  }, [router]);
+
   // Render Telegram Login Widget when NOT in Mini App and bot username is configured
   useEffect(() => {
     if (isTgMiniApp || !TG_BOT || !canRenderWidget) return;
@@ -70,7 +88,7 @@ export default function SSOButtons({ className }: Props) {
       script.setAttribute('data-request-access', 'write');
       try {
         const origin = window.location.origin;
-        script.setAttribute('data-auth-url', `${origin}/auth/tg-bridge`);
+        script.setAttribute('data-auth-url', `${origin}/auth/tg-login-bridge`);
       } catch {}
       const holder = widgetRef.current;
       if (holder) {

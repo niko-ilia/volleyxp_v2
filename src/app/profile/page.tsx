@@ -455,9 +455,13 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2">
               <div className="text-sm font-medium">Telegram</div>
               {isLinked ? (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium bg-green-600 text-white">Linked</span>
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-green-600/90 text-white shadow-sm ring-1 ring-inset ring-black/10">
+                  Linked
+                </span>
               ) : (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground">Not linked</span>
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-muted text-muted-foreground shadow-sm ring-1 ring-inset ring-black/5">
+                  Not linked
+                </span>
               )}
             </div>
             {isLinked ? (

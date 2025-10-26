@@ -58,7 +58,7 @@ export default function SSOButtons({ className }: Props) {
     return () => { try { window.removeEventListener('message', onMsg); } catch {} };
   }, [router]);
 
-  // Render Telegram Login Widget when NOT in Mini App and bot username is configured
+  // Render Telegram Login Widget (hidden) when NOT in Mini App and bot username is configured
   useEffect(() => {
     if (isTgMiniApp || !TG_BOT || !canRenderWidget) return;
     try {
@@ -125,13 +125,26 @@ export default function SSOButtons({ className }: Props) {
         router.push("/");
         return;
       }
-      // Outside of Mini App — do nothing
-      alert("Open this in Telegram Mini App to log in.");
+      // Web: trigger hidden widget programmatically
+      const w: any = typeof window !== 'undefined' ? window : {};
+      if (w?.TWidgetLogin && typeof w.TWidgetLogin.auth === 'function') {
+        try { w.TWidgetLogin.auth(); return; } catch {}
+      }
+      try {
+        const btn = widgetRef.current?.querySelector('button') as HTMLButtonElement | null;
+        btn?.click();
+        return;
+      } catch {}
+      // Dev/localhost fallback: open bot link so user can start the bot (and use Mini App)
+      if (TG_BOT) {
+        try { window.open(`https://t.me/${TG_BOT}`, '_blank', 'noopener'); } catch {}
+      }
+      alert(hostMsg || "Telegram login requires HTTPS and a whitelisted domain. Open the bot or use the Mini App.");
     } catch (e) {
       console.error(e);
       alert("Telegram auth error");
     }
-  }, [router]);
+  }, [router, TG_BOT, hostMsg]);
 
   return (
     <div className={className}>
@@ -141,24 +154,15 @@ export default function SSOButtons({ className }: Props) {
           Continue with Google
         </a>
       </Button>
-      {isTgMiniApp ? (
-        <>
-          <div className="h-2" />
-          <Button variant="outline" className="w-full gap-3" onClick={startTelegram}>
-            <Image src="/telegram.png" alt="Telegram" width={20} height={20} />
-            Continue with Telegram
-          </Button>
-        </>
-      ) : (
-        TG_BOT ? (
-          <>
-            {hostMsg ? (
-              <div className="mt-2 text-xs text-muted-foreground">{hostMsg}</div>
-            ) : null}
-            <div className="mt-2 flex w-full justify-center" ref={widgetRef} />
-          </>
-        ) : null
-      )}
+      <div className="h-2" />
+      <Button variant="outline" className="w-full gap-3" onClick={startTelegram}>
+        <Image src="/telegram.png" alt="Telegram" width={20} height={20} />
+        Continue with Telegram
+      </Button>
+      {/* Hidden holder for Telegram widget to supply payload/bridge */}
+      {TG_BOT ? (
+        <div className="sr-only" aria-hidden ref={widgetRef} />
+      ) : null}
     </div>
   );
 }

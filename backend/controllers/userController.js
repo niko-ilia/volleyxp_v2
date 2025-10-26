@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Match = require('../models/Match');
 const { sendMail } = require('../utils/mail');
 const jwt = require('jsonwebtoken');
+const { isBotInChat, botGetChat } = require('../utils/telegram');
 
 // Утилита для маскирования email для публичных ответов
 function maskEmailForPublic(email) {
@@ -75,6 +76,7 @@ const updateProfile = async (req, res) => {
       email: user.email,
       telegramId: user.telegramId,
       telegramUsername: user.telegramUsername,
+      telegramChannel: user.telegramChannel,
       preferences: user.preferences,
     });
   } catch (error) {
@@ -92,6 +94,7 @@ const getProfile = async (req, res) => {
       email: user.email,
       telegramId: user.telegramId,
       telegramUsername: user.telegramUsername,
+      telegramChannel: user.telegramChannel,
       rating: user.rating,
       createdAt: user.createdAt,
       emailConfirmed: user.emailConfirmed,
@@ -293,4 +296,89 @@ const getMatchHistoryByUserId = async (req, res) => {
   }
 };
 
-module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail };
+// Helpers for Telegram channel parsing
+function normalizeChannelInput(input) {
+  if (!input || typeof input !== 'string') return null;
+  let s = input.trim();
+  try {
+    if (/^https?:\/\//i.test(s)) {
+      const url = new URL(s);
+      if (url.hostname === 't.me' || url.hostname === 'telegram.me' || url.hostname.endsWith('.t.me')) {
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (parts.length >= 1) s = '@' + parts[0];
+      }
+    }
+  } catch (_) {}
+  if (/^-?\d{6,}$/.test(s)) return s; // numeric id like -100...
+  if (s.startsWith('@')) s = s.slice(1);
+  if (!s) return null;
+  return '@' + s;
+}
+
+// POST /api/users/telegram-channel — add channel once
+const addTelegramChannel = async (req, res) => {
+  try {
+    const { channel } = req.body || {};
+    const norm = normalizeChannelInput(channel);
+    if (!norm) return res.status(400).json({ message: 'Invalid channel' });
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.telegramChannel && (user.telegramChannel.id || user.telegramChannel.username)) {
+      return res.status(400).json({ message: 'Channel already added', code: 'CHANNEL_ALREADY_SET' });
+    }
+    const chat = await botGetChat(norm);
+    const id = String(chat?.id || '');
+    if (!id) return res.status(400).json({ message: 'Channel not found' });
+    const username = (chat?.username || '').toString();
+    const title = (chat?.title || '').toString();
+    user.telegramChannel = {
+      id,
+      username,
+      title,
+      linked: false,
+      addedAt: new Date(),
+      verifiedAt: undefined
+    };
+    await user.save();
+    return res.json({ telegramChannel: user.telegramChannel });
+  } catch (e) {
+    console.error('addTelegramChannel error:', e?.response?.data || e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /api/users/telegram-channel/verify — check bot membership
+const verifyTelegramChannel = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user.telegramChannel || (!user.telegramChannel.id && !user.telegramChannel.username)) {
+      return res.status(400).json({ message: 'No channel to verify', code: 'NO_CHANNEL' });
+    }
+    const key = user.telegramChannel.id || (user.telegramChannel.username ? ('@' + user.telegramChannel.username) : null);
+    const ok = await isBotInChat(key);
+    user.telegramChannel.linked = !!ok;
+    user.telegramChannel.verifiedAt = new Date();
+    await user.save();
+    return res.json({ ok, telegramChannel: user.telegramChannel });
+  } catch (e) {
+    console.error('verifyTelegramChannel error:', e?.response?.data || e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /api/users/telegram-channel — remove channel
+const deleteTelegramChannel = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.telegramChannel = undefined;
+    await user.save();
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('deleteTelegramChannel error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel };

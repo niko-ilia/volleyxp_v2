@@ -51,6 +51,31 @@ const userSchema = new mongoose.Schema({
   password: { type: String }, // Делаем необязательным для Telegram пользователей
   telegramId: { type: Number, unique: true, sparse: true }, // Telegram ID
   telegramUsername: { type: String }, // Telegram username
+  // Прямой канал общения с пользователем через бота
+  telegramChatId: { type: String, unique: true, sparse: true }, // chat_id из Telegram (как строка)
+  telegramLanguage: { type: String }, // language_code, например: 'en', 'ru'
+  tgLinkedAt: { type: Date }, // когда привязали Telegram
+  // Канал Telegram для уведомлений (один на пользователя)
+  telegramChannel: {
+    type: new mongoose.Schema({
+      id: { type: String }, // numeric id as string (can be negative for channels)
+      username: { type: String }, // @channel username without @
+      title: { type: String },
+      linked: { type: Boolean, default: false }, // бот состоит в канале
+      addedAt: { type: Date },
+      verifiedAt: { type: Date }
+    }, { _id: false }),
+    default: undefined
+  },
+  // Согласия пользователя на типы уведомлений в Telegram
+  notificationConsents: {
+    type: new mongoose.Schema({
+      tgReminders: { type: Boolean, default: false }, // напоминания о матчах/резервациях
+      tgResults: { type: Boolean, default: false },   // результаты матчей
+      tgAdmin: { type: Boolean, default: false }      // админ-алерты/системные сообщения
+    }, { _id: false }),
+    default: undefined
+  },
   googleId: { type: String, unique: true, sparse: true }, // Google ID
   rating: { type: Number, default: 2.0 },
   ratingHistory: [ratingHistorySchema],
@@ -122,5 +147,8 @@ userSchema.index({ isBlocked: 1 }); // Фильтрация заблокиров
 userSchema.index({ isTestUser: 1 }); // Фильтрация тестовых пользователей
 userSchema.index({ lastLoginAt: -1 }); // Сортировка по последнему входу
 userSchema.index({ createdAt: -1 }); // Сортировка по дате регистрации
+// Быстрые проверки по телеграм-каналам
+userSchema.index({ 'telegramChannel.id': 1 });
+userSchema.index({ 'telegramChannel.username': 1 });
 
 module.exports = mongoose.model('User', userSchema); 

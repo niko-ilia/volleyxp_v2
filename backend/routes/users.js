@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile, getMatchHistory, getUserByEmail, getPublicProfile, getMatchHistoryByUserId } = require('../controllers/userController');
+const { getProfile, updateProfile, getMatchHistory, getUserByEmail, getPublicProfile, getMatchHistoryByUserId, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel } = require('../controllers/userController');
 const auth = require('../middleware/auth');
 
 
@@ -19,6 +19,11 @@ router.get('/profile', getProfile);
 
 // PUT /api/users/profile - обновить профиль пользователя
 router.put('/profile', updateProfile);
+
+// Telegram channel management
+router.post('/telegram-channel', addTelegramChannel);
+router.post('/telegram-channel/verify', verifyTelegramChannel);
+router.delete('/telegram-channel', deleteTelegramChannel);
 
 // GET /api/users/match-history - получить историю матчей пользователя
 router.get('/match-history', getMatchHistory);

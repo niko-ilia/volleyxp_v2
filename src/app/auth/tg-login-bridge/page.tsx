@@ -18,9 +18,26 @@ export default function TgLoginBridgePage() {
           const hp = new URLSearchParams(h);
           hp.forEach((v, k) => { params[k] = v; });
         } catch {}
-        // Some providers return tgAuthResult with JSON string
-        const rawUser = params.user || params.tgAuthResult || '';
-        const telegramAuthPayload = rawUser ? JSON.parse(rawUser) : params;
+        // Some providers return tgAuthResult as JSON string or base64(JSON)
+        function parsePayload(p: Record<string, string>): any {
+          const raw = p.user || p.tgAuthResult || '';
+          if (raw) {
+            // 1) try direct JSON
+            try { return JSON.parse(raw); } catch {}
+            // 2) try base64 (url-safe) -> JSON
+            try {
+              const norm = raw.replace(/-/g, '+').replace(/_/g, '/');
+              const decoded = typeof atob === 'function' ? atob(norm) : Buffer.from(norm, 'base64').toString('utf-8');
+              return JSON.parse(decoded);
+            } catch {}
+          }
+          // 3) fallback: collect known fields from params
+          const keys = ['id','first_name','last_name','username','photo_url','auth_date','hash'];
+          const obj: any = {};
+          for (const k of keys) if (p[k]) obj[k] = p[k];
+          return obj;
+        }
+        const telegramAuthPayload = parsePayload(params);
         const res = await fetch('/api/auth/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

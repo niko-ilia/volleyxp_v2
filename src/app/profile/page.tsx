@@ -89,6 +89,10 @@ export default function ProfilePage() {
         saveAuth(data.token, null, data.user);
         setProfile((prev) => prev ? { ...prev, telegramId: data.user?.telegramId ?? (prev as any).telegramId, telegramUsername: data.user?.telegramUsername ?? (prev as any).telegramUsername } as any : prev);
         await refreshUser();
+        try {
+          const pf = await authFetchWithRetry('/api/users/profile');
+          if (pf.ok) setProfile(await pf.json());
+        } catch {}
         setTgMsg('Telegram linked');
       } catch (e: any) {
         setTgMsg(e?.message || 'Link failed');
@@ -103,6 +107,7 @@ export default function ProfilePage() {
       script.async = true;
       script.setAttribute('data-telegram-login', TG_BOT);
       script.setAttribute('data-size', 'large');
+      script.setAttribute('data-userpic', 'false');
       script.setAttribute('data-onauth', 'onTelegramAuth');
       script.setAttribute('data-request-access', 'write');
       if (holder) {
@@ -402,23 +407,23 @@ export default function ProfilePage() {
 
           {/* Telegram linking */}
           <div className="space-y-2">
-            <div className="text-sm font-medium">Telegram</div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">Telegram</div>
               {isLinked ? (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-green-600 text-white">Linked</span>
+                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium bg-green-600 text-white">Linked</span>
               ) : (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">Not linked</span>
+                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground">Not linked</span>
               )}
-              {isLinked ? (
-                <div className="flex items-center gap-2">
-                  {tgAvatar ? (
-                    // Use img to avoid Next.js domain allowlist
-                    <img src={tgAvatar} alt="Telegram avatar" className="h-8 w-8 rounded-full object-cover" />
-                  ) : null}
-                  <div className="text-sm">{tgUsername ? `@${tgUsername}` : `ID: ${tgId}`}</div>
-                </div>
-              ) : null}
             </div>
+            {isLinked ? (
+              <div className="flex items-center gap-2">
+                {tgAvatar ? (
+                  // Use img to avoid Next.js domain allowlist
+                  <img src={tgAvatar} alt="Telegram avatar" className="h-8 w-8 rounded-full object-cover" />
+                ) : null}
+                <div className="text-sm">{tgUsername ? `@${tgUsername}` : `ID: ${tgId}`}</div>
+              </div>
+            ) : null}
             {!isLinked ? (
               <div className="space-y-2">
                 <div className="text-xs text-muted-foreground">Link your Telegram to enable Mini App login and notifications.</div>
@@ -444,6 +449,10 @@ export default function ProfilePage() {
                           saveAuth(data.token, null, data.user);
                           setProfile((prev) => prev ? { ...prev, telegramId: data.user?.telegramId ?? (prev as any).telegramId, telegramUsername: data.user?.telegramUsername ?? (prev as any).telegramUsername } as any : prev);
                           await refreshUser();
+                          try {
+                            const pf = await authFetchWithRetry('/api/users/profile');
+                            if (pf.ok) setProfile(await pf.json());
+                          } catch {}
                           setTgMsg('Telegram linked');
                         return;
                       }

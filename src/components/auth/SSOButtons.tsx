@@ -64,6 +64,7 @@ export default function SSOButtons({ className }: Props) {
       script.async = true;
       script.setAttribute('data-telegram-login', TG_BOT);
       script.setAttribute('data-size', 'large');
+      script.setAttribute('data-userpic', 'false');
       script.setAttribute('data-onauth', 'onTelegramAuth');
       script.setAttribute('data-request-access', 'write');
       const holder = widgetRef.current;

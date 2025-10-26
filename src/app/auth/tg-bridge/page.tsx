@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { authFetchWithRetry } from "@/lib/auth/api";
+import { getToken } from "@/lib/auth/storage";
 
 export default function TgBridgePage() {
   const [status, setStatus] = useState<string>("Linking...");
@@ -20,7 +21,7 @@ export default function TgBridgePage() {
             const res = await fetch(`/api/auth/link-telegram-authed?jwt=${encodeURIComponent(token)}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload })
+              body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload, jwt: token })
             });
             if (!res.ok) throw new Error(await res.text());
             const data = await res.json();
@@ -44,17 +45,19 @@ export default function TgBridgePage() {
           const res = await fetch(`/api/auth/link-telegram-authed?jwt=${encodeURIComponent(tokenFromParent)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload })
+            body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload, jwt: tokenFromParent })
           });
           if (!res.ok) throw new Error(await res.text());
           const data = await res.json();
           window.parent?.postMessage({ type: 'tg_link_result', ok: true, data }, '*');
           return;
         }
-        const res = await authFetchWithRetry('/api/auth/link-telegram-authed', {
+        // 3) Last resort: use authFetch (may include Authorization) and also include jwt from localStorage
+        const storageToken = getToken();
+        const res = await fetch('/api/auth/link-telegram-authed', {
           method: 'POST',
-          body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload }),
-          headers: { 'Content-Type': 'application/json' }
+          body: JSON.stringify({ telegramAuthPayload, telegramUser: telegramAuthPayload, jwt: storageToken || undefined }),
+          headers: { 'Content-Type': 'application/json', ...(storageToken ? {} : {}) }
         });
         if (!res.ok) {
           const t = await res.text();

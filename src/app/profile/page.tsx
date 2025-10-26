@@ -119,7 +119,7 @@ export default function ProfilePage() {
       script.setAttribute('data-telegram-login', TG_BOT);
       script.setAttribute('data-size', 'large');
       script.setAttribute('data-userpic', 'false');
-      script.setAttribute('data-onauth', 'onTelegramAuth');
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
       script.setAttribute('data-request-access', 'write');
       try {
         const origin = window.location.origin;

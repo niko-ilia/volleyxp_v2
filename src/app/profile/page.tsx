@@ -121,6 +121,10 @@ export default function ProfilePage() {
       script.setAttribute('data-userpic', 'false');
       script.setAttribute('data-onauth', 'onTelegramAuth');
       script.setAttribute('data-request-access', 'write');
+      try {
+        const origin = window.location.origin;
+        script.setAttribute('data-auth-url', `${origin}/auth/tg-bridge`);
+      } catch {}
       if (holder) {
         holder.innerHTML = '';
         holder.appendChild(script);

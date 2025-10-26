@@ -75,6 +75,21 @@ export default function ProfilePage() {
   React.useEffect(() => {
     if (isTgMiniApp || !TG_BOT || !canRenderWidget) return;
     const w: any = typeof window !== 'undefined' ? window : {};
+    const onMsg = (e: MessageEvent) => {
+      if (!e?.data || e.data?.type !== 'tg_link_result') return;
+      if (e.data?.ok) {
+        setTgMsg('Telegram linked');
+        refreshUser();
+        authFetchWithRetry('/api/users/profile').then(async (r) => {
+          if (!r.ok) return;
+          const j = await r.json();
+          setProfile(j);
+        }).catch(()=>void 0);
+      } else {
+        setTgMsg(`Link failed: ${e.data?.error || 'unknown'}`);
+      }
+    };
+    try { window.addEventListener('message', onMsg); } catch {}
     w.onTelegramAuth = async (payload: any) => {
       try {
         const email = profile?.email || (user as any)?.email;
@@ -133,6 +148,7 @@ export default function ProfilePage() {
     return () => {
       try { if (holder) holder.innerHTML = ''; } catch {}
       try { delete (w as any).onTelegramAuth; } catch {}
+      try { window.removeEventListener('message', onMsg); } catch {}
     };
   }, [isTgMiniApp, TG_BOT, canRenderWidget, profile?.email, user, refreshUser]);
 

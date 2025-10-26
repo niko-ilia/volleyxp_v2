@@ -17,6 +17,7 @@ export default function SSOButtons({ className }: Props) {
   const [isTgMiniApp, setIsTgMiniApp] = useState(false);
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const TG_BOT = (process.env.NEXT_PUBLIC_TG_BOT_USERNAME as string) || (process.env.NEXT_PUBLIC_TG_BOT_NAME as string) || "";
+  const TG_BOT_ID = (process.env.NEXT_PUBLIC_TG_BOT_ID as string) || ""; // optional, for direct OAuth URL fallback
   const [canRenderWidget, setCanRenderWidget] = useState(false);
   const [hostMsg, setHostMsg] = useState<string | null>(null);
 
@@ -135,6 +136,17 @@ export default function SSOButtons({ className }: Props) {
         btn?.click();
         return;
       } catch {}
+      // Direct OAuth fallback via oauth.telegram.org (requires bot_id)
+      try {
+        if (TG_BOT_ID) {
+          const origin = window.location.origin;
+          const returnTo = encodeURIComponent(`${origin}/auth/tg-login-bridge`);
+          const oauth = `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(TG_BOT_ID)}&origin=${encodeURIComponent(origin)}&embed=1&request_access=write&return_to=${returnTo}`;
+          // Navigate the current tab (avoids popup blockers)
+          window.location.assign(oauth);
+          return;
+        }
+      } catch {}
       // Dev/localhost fallback: open bot link so user can start the bot (and use Mini App)
       if (TG_BOT) {
         try { window.open(`https://t.me/${TG_BOT}`, '_blank', 'noopener'); } catch {}
@@ -144,7 +156,17 @@ export default function SSOButtons({ className }: Props) {
       console.error(e);
       alert("Telegram auth error");
     }
-  }, [router, TG_BOT, hostMsg]);
+  }, [router, TG_BOT, TG_BOT_ID, hostMsg]);
+
+  // Precompute direct OAuth URL if available (most reliable on prod)
+  let oauthUrl: string | null = null;
+  try {
+    if (typeof window !== 'undefined' && TG_BOT_ID) {
+      const origin = window.location.origin;
+      const returnTo = encodeURIComponent(`${origin}/auth/tg-login-bridge`);
+      oauthUrl = `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(TG_BOT_ID)}&origin=${encodeURIComponent(origin)}&embed=1&request_access=write&return_to=${returnTo}`;
+    }
+  } catch {}
 
   return (
     <div className={className}>
@@ -155,14 +177,24 @@ export default function SSOButtons({ className }: Props) {
         </a>
       </Button>
       <div className="h-2" />
-      <Button variant="outline" className="w-full gap-3" onClick={startTelegram}>
-        <Image src="/telegram.png" alt="Telegram" width={20} height={20} />
-        Continue with Telegram
-      </Button>
-      {/* Hidden holder for Telegram widget to supply payload/bridge */}
-      {TG_BOT ? (
-        <div className="sr-only" aria-hidden ref={widgetRef} />
-      ) : null}
+      {oauthUrl ? (
+        <Button variant="outline" className="w-full gap-3" asChild>
+          <a href={oauthUrl}>
+            <Image src="/telegram.png" alt="Telegram" width={20} height={20} />
+            Continue with Telegram
+          </a>
+        </Button>
+      ) : (
+        <>
+          <Button variant="outline" className="w-full gap-3" onClick={startTelegram}>
+            <Image src="/telegram.png" alt="Telegram" width={20} height={20} />
+            Continue with Telegram
+          </Button>
+          {TG_BOT ? (
+            <div className="sr-only" aria-hidden ref={widgetRef} />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

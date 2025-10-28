@@ -64,8 +64,10 @@ export default function CreateMatchPage() {
       try {
         // Prefer all courts (admin). If 403, fallback to mine for court_admin.
         let res = await authFetchWithRetry("/api/admin/courts?limit=100");
-        if (res.status === 403) {
-          res = await authFetchWithRetry("/api/admin/courts/mine?limit=100");
+        if (res.status === 403) res = await authFetchWithRetry("/api/admin/courts/mine?limit=100");
+        if (!res.ok) {
+          // Final fallback: public courts (no auth)
+          res = await authFetchWithRetry("/api/courts?limit=100&status=active");
         }
         if (!res.ok) throw new Error(`Failed to load courts: ${res.status}`);
         const data = await res.json();

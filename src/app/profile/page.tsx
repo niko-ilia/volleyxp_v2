@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { saveAuth, getToken, getRefreshToken } from "@/lib/auth/storage";
 import Image from "next/image";
 
@@ -565,25 +565,11 @@ export default function ProfilePage() {
             </div>
             {tgChannel?.id ? (
               <div className="space-y-2">
-                <div className="text-sm">
-                  {tgChannel.title || (tgChannel.username ? `@${tgChannel.username}` : tgChannel.id)}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="secondary" disabled={channelBusy} onClick={async () => {
-                    setChannelBusy(true); setChannelMsg(null);
-                    try {
-                      const res = await authFetchWithRetry('/api/users/telegram-channel/verify', { method: 'POST' });
-                      const txt = await res.text();
-                      const ok = res.ok; let body: any = null; try { body = JSON.parse(txt); } catch {}
-                      if (!ok) throw new Error(body?.message || txt || `Error ${res.status}`);
-                      setChannelMsg(body?.ok ? 'Channel linked ✔' : 'Bot is not in the channel');
-                      // Refresh profile
-                      const pf = await authFetchWithRetry('/api/users/profile'); if (pf.ok) setProfile(await pf.json());
-                    } catch (e: any) {
-                      setChannelMsg(e?.message || 'Verify failed');
-                    } finally { setChannelBusy(false); }
-                  }}>Verify bot</Button>
-                  <Button size="sm" variant="destructive" disabled={channelBusy} onClick={async () => {
+                <div className="flex items-center justify-between">
+                  <div className="text-sm">
+                    {tgChannel.title || (tgChannel.username ? `@${tgChannel.username}` : tgChannel.id)}
+                  </div>
+                  <Button size="icon" variant="ghost" aria-label="Unlink channel" disabled={channelBusy} onClick={async () => {
                     setChannelBusy(true); setChannelMsg(null);
                     try {
                       const res = await authFetchWithRetry('/api/users/telegram-channel', { method: 'DELETE' });
@@ -591,8 +577,27 @@ export default function ProfilePage() {
                       setChannelMsg('Channel removed');
                       const pf = await authFetchWithRetry('/api/users/profile'); if (pf.ok) setProfile(await pf.json());
                     } catch (e: any) { setChannelMsg(e?.message || 'Remove failed'); } finally { setChannelBusy(false); }
-                  }}>Remove</Button>
+                  }}>
+                    <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
                 </div>
+                {!tgChannel?.linked ? (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" disabled={channelBusy} onClick={async () => {
+                      setChannelBusy(true); setChannelMsg(null);
+                      try {
+                        const res = await authFetchWithRetry('/api/users/telegram-channel/verify', { method: 'POST' });
+                        const txt = await res.text();
+                        const ok = res.ok; let body: any = null; try { body = JSON.parse(txt); } catch {}
+                        if (!ok) throw new Error(body?.message || txt || `Error ${res.status}`);
+                        setChannelMsg(body?.ok ? 'Channel linked ✔' : 'Bot is not in the channel');
+                        const pf = await authFetchWithRetry('/api/users/profile'); if (pf.ok) setProfile(await pf.json());
+                      } catch (e: any) {
+                        setChannelMsg(e?.message || 'Verify failed');
+                      } finally { setChannelBusy(false); }
+                    }}>Verify bot</Button>
+                  </div>
+                ) : null}
                 {channelMsg ? <div className="text-xs text-muted-foreground">{channelMsg}</div> : null}
               </div>
             ) : (

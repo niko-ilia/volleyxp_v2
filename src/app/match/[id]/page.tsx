@@ -109,6 +109,7 @@ export default function MatchPage() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   type GameDraft = { team1: string[]; team2: string[]; team1Score: number | string; team2Score: number | string };
   const [gamesDraft, setGamesDraft] = useState<GameDraft[]>([{ team1: [], team2: [], team1Score: 0, team2Score: 0 }]);
@@ -298,6 +299,25 @@ export default function MatchPage() {
     else setMatch({ ...match, status: "cancelled" });
   }
 
+  async function removeParticipant(participantId: string) {
+    if (!match) return;
+    setRemoving(participantId);
+    try {
+      const res = await authFetchWithRetry(`/api/matches/${match._id}/participants/${participantId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await safeJson(res);
+        throw new Error(err?.message || err?.code || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      const updated = data?.item || data;
+      setMatch(updated);
+    } catch (e: any) {
+      alert(e?.message || 'Failed to remove participant');
+    } finally {
+      setRemoving(null);
+    }
+  }
+
   async function confirmMatchResult() {
     if (!match) return;
     setConfirming(true);
@@ -429,6 +449,10 @@ export default function MatchPage() {
   const canCancelAfterEnd = now > end && !hasResult && (now.getTime() - end.getTime() <= 48 * 60 * 60 * 1000);
   const cancelAction = canCancelBeforeStart ? (participantsCount <= 1 ? 'delete' : 'cancel') : canDelete ? 'delete' : null;
   const cancelLabel = (canCancelBeforeStart && participantsCount <= 1) || canDelete ? 'Delete match' : 'Cancel match';
+  // Remove availability (creator or admin roles) within 12h window and when no result exists
+  const isAdmin = Array.isArray((user as any)?.roles) ? (user as any).roles.includes('super_admin') || (user as any).roles.includes('court_admin') : ((user as any)?.role === 'super_admin' || (user as any)?.role === 'court_admin');
+  const within12h = now.getTime() - start.getTime() <= 12 * 60 * 60 * 1000;
+  const canRemoveParticipants = (isCreator || isAdmin) && within12h && !hasResult;
 
   return (
     <div className="mx-auto w-full max-w-3xl p-6 space-y-6">
@@ -498,10 +522,27 @@ export default function MatchPage() {
               const js = (match.joinSnapshots || []).find(s => s.userId === p._id);
               const r = js?.rating ?? p.rating;
               return (
-                <Link key={p._id} href={`/profile/${p._id}`} className="rounded-md border p-3 shadow-xs flex items-center justify-between hover:bg-muted/50">
-                  <div className="font-medium text-sm">{p.name || maskEmail(p.email)}</div>
-                  <Badge variant="secondary" className="text-xs">★ {formatRating(r)}</Badge>
-                </Link>
+                <div key={p._id} className="relative">
+                  <Link href={`/profile/${p._id}`} className="rounded-md border p-3 shadow-xs flex items-center justify-between hover:bg-muted/50">
+                    <div className="font-medium text-sm">{p.name || maskEmail(p.email)}</div>
+                    <Badge variant="secondary" className="text-xs">★ {formatRating(r)}</Badge>
+                  </Link>
+                  {canRemoveParticipants && p._id !== (user?._id || (user as any)?.id) && p._id !== match.creator?._id ? (
+                    <button
+                      title="Remove"
+                      onClick={() => removeParticipant(p._id)}
+                      disabled={removing === p._id}
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      aria-label="Remove participant"
+                    >
+                      {removing === p._id ? (
+                        <span className="h-3 w-3 animate-pulse">•</span>
+                      ) : (
+                        <span className="text-sm leading-none">×</span>
+                      )}
+                    </button>
+                  ) : null}
+                </div>
               )
             })}
           </div>

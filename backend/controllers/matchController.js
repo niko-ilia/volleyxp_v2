@@ -372,34 +372,20 @@ const removePlayerFromMatch = async (req, res) => {
       return res.status(404).json({ code: 'PARTICIPANT_NOT_FOUND' });
     }
 
-    // Ограничение 24 часа после начала (кроме супер-админа)
+    // Ограничение: только в течение 12 часов после начала (кроме супер-админа)
     if (!roles.includes('super_admin')) {
       const now = new Date();
       const matchStart = new Date(match.startDateTime);
-      const diffHours = (now - matchStart) / (1000 * 60 * 60);
-      if (diffHours > 24) {
+      const diffHours = (now.getTime() - matchStart.getTime()) / (1000 * 60 * 60);
+      if (diffHours > 12) {
         return res.status(403).json({ code: 'REMOVE_TOO_LATE' });
       }
     }
 
-    // Нельзя удалять, если есть подтвержденный результат
+    // Нельзя удалять, если есть любой результат (драфт или подтвержденный)
     const existingResult = await Result.findOne({ match: match._id });
-    if (existingResult && existingResult.isConfirmed) {
-      return res.status(400).json({ code: 'RESULT_CONFIRMED' });
-    }
-
-    // Если есть черновик, вычищаем игрока из всех геймов, а геймы без полноценных команд удаляем
-    if (existingResult && !existingResult.isConfirmed) {
-      const pid = String(participantId);
-      const cleaned = (existingResult.games || []).map(g => ({
-        ...g.toObject?.() || g,
-        team1: (g.team1 || []).filter(u => u.toString() !== pid),
-        team2: (g.team2 || []).filter(u => u.toString() !== pid)
-      })).filter(g => (g.team1?.length === 2 && g.team2?.length === 2));
-      if (cleaned.length !== (existingResult.games || []).length) {
-        existingResult.games = cleaned;
-        await existingResult.save();
-      }
+    if (existingResult) {
+      return res.status(400).json({ code: 'RESULT_EXISTS' });
     }
 
     // Удаляем участника

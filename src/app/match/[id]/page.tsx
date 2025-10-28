@@ -35,6 +35,7 @@ type Match = {
   courtId?: { _id: string; name: string } | null;
   status?: string;
   joinSnapshots?: { userId: string; rating: number; joinedAt?: string }[];
+  maxParticipants?: number;
 };
 
 type Result = {
@@ -191,6 +192,18 @@ export default function MatchPage() {
   async function leaveMatch() {
     if (!match) return;
     const res = await authFetchWithRetry(`/api/matches/${match._id}/leave`, { method: "POST" });
+    if (res.ok) {
+      const m = await res.json();
+      setMatch(m);
+    } else {
+      const err = await safeJson(res);
+      alert(err?.message || `Error ${res.status}`);
+    }
+  }
+
+  async function joinMatch() {
+    if (!match) return;
+    const res = await authFetchWithRetry(`/api/matches/${match._id}/join`, { method: "POST" });
     if (res.ok) {
       const m = await res.json();
       setMatch(m);
@@ -399,12 +412,18 @@ export default function MatchPage() {
   const timeStr = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const participantsCount = Array.isArray(match.participants) ? match.participants.length : 0;
   const isUserParticipant = !!user && Array.isArray(match.participants) && match.participants.some(p => p._id === (user._id || (user as any).id));
+  const isCreator = !!user && match.creator?._id && (user._id || (user as any).id) === match.creator._id;
   const isResultConfirmed = !!result?.isConfirmed;
   const canAddResults = participantsCount >= 4 && isUserParticipant && !isResultConfirmed && match.status !== 'cancelled';
   const start = new Date(match.startDateTime);
   const end = new Date(start.getTime() + match.duration * 60000);
   const now = new Date();
   const hasResult = !!result;
+  const hasStarted = now >= start;
+  const isFull = participantsCount >= (match.maxParticipants || 6);
+  const joinDeadline = new Date(start.getTime() + 12 * 60 * 60 * 1000);
+  const canJoin = !isUserParticipant && !isCreator && !isFull && match.status !== 'cancelled' && now <= joinDeadline && !isResultConfirmed;
+  const canLeave = isUserParticipant && !isCreator && match.status !== 'cancelled' && now < start;
   const canCancelBeforeStart = now < start && !hasResult;
   const canDelete = now < start && hasResult; // practically never, but keep for consistency
   const canCancelAfterEnd = now > end && !hasResult && (now.getTime() - end.getTime() <= 48 * 60 * 60 * 1000);
@@ -431,7 +450,12 @@ export default function MatchPage() {
             <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Status</div><div className="font-semibold text-destructive">Cancelled</div></div>
           )}
           <div className="flex flex-wrap items-center gap-2 pt-2">
-            <Button onClick={leaveMatch} className="shrink-0">Leave match</Button>
+            {canJoin && (
+              <Button onClick={joinMatch} className="shrink-0">Join match</Button>
+            )}
+            {canLeave && (
+              <Button onClick={leaveMatch} className="shrink-0" variant="secondary">Leave match</Button>
+            )}
             {(user && match.creator?._id && (user._id || user.id) === match.creator._id && match.status !== 'cancelled') && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>

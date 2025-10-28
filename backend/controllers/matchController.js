@@ -156,6 +156,11 @@ const joinMatch = async (req, res) => {
     if (new Date() > joinDeadline) {
       return res.status(400).json({ code: 'MATCH_ALREADY_PASSED' });
     }
+    // Нельзя присоединиться, если результат подтверждён
+    const existingResult = await Result.findOne({ match: match._id });
+    if (existingResult && existingResult.isConfirmed) {
+      return res.status(400).json({ code: 'RESULT_CONFIRMED' });
+    }
 
     // Проверяем, есть ли место
     if (match.participants.length >= match.maxParticipants) {
@@ -241,6 +246,11 @@ const addPlayerToMatch = async (req, res) => {
     const joinDeadline = new Date(match.startDateTime.getTime() + 12 * 60 * 60 * 1000);
     if (new Date() > joinDeadline) {
       return res.status(400).json({ code: 'MATCH_ALREADY_PASSED' });
+    }
+    // Нельзя добавлять, если результат подтверждён
+    const existingResult = await Result.findOne({ match: match._id });
+    if (existingResult && existingResult.isConfirmed) {
+      return res.status(400).json({ code: 'RESULT_CONFIRMED' });
     }
 
     // Проверяем, есть ли место

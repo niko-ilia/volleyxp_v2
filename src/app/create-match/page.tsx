@@ -12,6 +12,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type CourtLite = { _id: string; name: string; address?: string; status?: string };
 
@@ -36,6 +37,8 @@ export default function CreateMatchPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [shareUrl, setShareUrl] = useState("");
+  const [postTarget, setPostTarget] = useState<"none" | "tg_channel">("none");
+  const [profile, setProfile] = useState<any | null>(null);
 
   const timeOptions = useMemo(() => {
     // 07:00..21:00 inclusive by hours => 15 values
@@ -54,6 +57,21 @@ export default function CreateMatchPage() {
     const mm = String(now.getMonth() + 1).padStart(2, "0");
     const dd = String(now.getDate()).padStart(2, "0");
     setDate(`${yyyy}-${mm}-${dd}`);
+  }, []);
+
+  // Load profile to know if user has linked Telegram channel
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProfile() {
+      try {
+        const res = await authFetchWithRetry('/api/users/profile');
+        if (!res.ok) return;
+        const p = await res.json();
+        if (!cancelled) setProfile(p);
+      } catch {}
+    }
+    loadProfile();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -148,6 +166,14 @@ export default function CreateMatchPage() {
       setShareText(msg + "\n\n" + ((originNoWww ? originNoWww : "") + url));
       setShareUrl(url);
       setShareOpen(true);
+
+      // Optionally post to Telegram channel after creation
+      try {
+        const hasLinkedChannel = Boolean((profile as any)?.telegramChannel?.linked);
+        if (postTarget === 'tg_channel' && hasLinkedChannel) {
+          await authFetchWithRetry('/api/users/telegram-channel/post', { method: 'POST', body: JSON.stringify({ text: msg + "\n\n" + ((originNoWww ? originNoWww : "") + url) }) });
+        }
+      } catch {}
     } catch (e) {
       const err = e as { message?: string };
       setError(err?.message || "Failed to create match");
@@ -253,6 +279,22 @@ export default function CreateMatchPage() {
           <Label htmlFor="desc">Description</Label>
           <Textarea id="desc" value={description} onChange={e => setDescription(e.target.value)} rows={4} placeholder="Notes, special rules, etc." />
         </div>
+
+        {(profile?.telegramChannel?.linked) ? (
+          <div className="space-y-2">
+            <Label>Post to</Label>
+            <RadioGroup value={postTarget} onValueChange={(v) => setPostTarget(v as any)} className="grid gap-2">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="post-none" value="none" />
+                <Label htmlFor="post-none" className="font-normal">Do not post</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="post-tg" value="tg_channel" />
+                <Label htmlFor="post-tg" className="font-normal">Post to Telegram channel ({profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)})</Label>
+              </div>
+            </RadioGroup>
+          </div>
+        ) : null}
 
         <div className="min-h-[20px] text-sm text-red-600">{error}</div>
 

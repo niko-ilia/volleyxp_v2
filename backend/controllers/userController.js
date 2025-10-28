@@ -2,7 +2,7 @@ const User = require('../models/User');
 const Match = require('../models/Match');
 const { sendMail } = require('../utils/mail');
 const jwt = require('jsonwebtoken');
-const { isBotInChat, botGetChat } = require('../utils/telegram');
+const { isBotInChat, botGetChat, sendTelegramMessage } = require('../utils/telegram');
 
 // Утилита для маскирования email для публичных ответов
 function maskEmailForPublic(email) {
@@ -381,4 +381,27 @@ const deleteTelegramChannel = async (req, res) => {
   }
 };
 
-module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel };
+// POST /api/users/telegram-channel/post — send text to user's linked channel
+const postToTelegramChannel = async (req, res) => {
+  try {
+    const { text } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ message: 'Text is required' });
+    }
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const chan = user.telegramChannel;
+    if (!chan || !chan.linked || (!chan.id && !chan.username)) {
+      return res.status(400).json({ message: 'Channel is not linked', code: 'CHANNEL_NOT_LINKED' });
+    }
+    const chatId = chan.id || (chan.username ? ('@' + chan.username) : null);
+    if (!chatId) return res.status(400).json({ message: 'Invalid channel' });
+    await sendTelegramMessage({ chatId, text });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('postToTelegramChannel error:', e?.response?.data || e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel };

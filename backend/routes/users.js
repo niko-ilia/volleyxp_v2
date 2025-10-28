@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile, getMatchHistory, getUserByEmail, getPublicProfile, getMatchHistoryByUserId, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel } = require('../controllers/userController');
+const { getProfile, updateProfile, getMatchHistory, getUserByEmail, getPublicProfile, getMatchHistoryByUserId, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel } = require('../controllers/userController');
 const auth = require('../middleware/auth');
 
 
@@ -24,6 +24,7 @@ router.put('/profile', updateProfile);
 router.post('/telegram-channel', addTelegramChannel);
 router.post('/telegram-channel/verify', verifyTelegramChannel);
 router.delete('/telegram-channel', deleteTelegramChannel);
+router.post('/telegram-channel/post', postToTelegramChannel);
 
 // GET /api/users/match-history - получить историю матчей пользователя
 router.get('/match-history', getMatchHistory);

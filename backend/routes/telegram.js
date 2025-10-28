@@ -22,6 +22,11 @@ router.all('/webhook', (req, res) => {
   });
 });
 
+// Simple readiness/debug probe to confirm router is mounted in prod
+router.get('/__debug', (req, res) => {
+  res.json({ ok: true, where: 'telegram-router', ts: new Date().toISOString() });
+});
+
 module.exports = router;
 
 

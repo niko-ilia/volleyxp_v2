@@ -532,13 +532,13 @@ export default function MatchPage() {
                       title="Remove"
                       onClick={() => removeParticipant(p._id)}
                       disabled={removing === p._id}
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-600 text-white flex items-center justify-center shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer transition-colors"
                       aria-label="Remove participant"
                     >
                       {removing === p._id ? (
                         <span className="h-3 w-3 animate-pulse">•</span>
                       ) : (
-                        <span className="text-sm leading-none">×</span>
+                        <span className="text-[10px] leading-none">×</span>
                       )}
                     </button>
                   ) : null}

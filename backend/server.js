@@ -39,11 +39,34 @@ app.get('/api/ping', (req, res) => {
   res.json({ message: 'pong' });
 });
 
+// Лёгкие проверки доступности сервиса и монтирования телеграм-роутера
+app.get('/api/__debug', (_req, res) => {
+  res.json({ ok: true, service: 'backend', ts: new Date().toISOString() });
+});
+
+app.get('/api/__debug/telegram', (_req, res) => {
+  let mounted = false;
+  try {
+    const stack = app && app._router && Array.isArray(app._router.stack) ? app._router.stack : [];
+    mounted = stack.some(layer => {
+      try {
+        return layer && layer.name === 'router' && layer.regexp && layer.regexp.toString().includes('\\/api\\/telegram');
+      } catch (_) {
+        return false;
+      }
+    });
+  } catch (_) {
+    mounted = false;
+  }
+  res.json({ ok: true, telegramRouterMounted: mounted, ts: new Date().toISOString() });
+});
+
 // Роуты
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/results', require('./routes/results'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/telegram', require('./routes/telegram'));
 // ВАЖНО: более специфичный префикс должен идти раньше, иначе попадём в общий /api/admin
 app.use('/api/admin/courts', require('./routes/courts'));
 app.use('/api/admin', require('./routes/admin'));

@@ -115,7 +115,7 @@ async function webhook(req, res) {
     return res.json({ ok: true });
   } catch (e) {
     console.error('Telegram webhook error:', e);
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: false, code: 'WEBHOOK_ERROR', error: e?.message || 'Unknown error' });
   }
 }
 

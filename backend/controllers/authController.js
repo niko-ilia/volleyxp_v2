@@ -296,6 +296,8 @@ const telegramAuth = async (req, res) => {
         email: `tg_${saneTelegramUser.id}@telegram.local`,
         telegramId: saneTelegramUser.id,
         telegramUsername: saneTelegramUser.username,
+        telegramLanguage: saneTelegramUser.language_code || undefined,
+        tgLinkedAt: new Date(),
         rating: 2.0,
         ratingHistory: []
       });
@@ -304,6 +306,13 @@ const telegramAuth = async (req, res) => {
 
     // Обновляем время последнего входа для Telegram пользователей
     user.lastLoginAt = new Date();
+    // Актуализируем username/язык
+    if (saneTelegramUser.username && user.telegramUsername !== saneTelegramUser.username) {
+      user.telegramUsername = saneTelegramUser.username;
+    }
+    if (saneTelegramUser.language_code && user.telegramLanguage !== saneTelegramUser.language_code) {
+      user.telegramLanguage = saneTelegramUser.language_code;
+    }
     await user.save();
 
     // Генерируем JWT токен
@@ -389,6 +398,8 @@ const linkTelegramAccount = async (req, res) => {
     // Привязываем Telegram ID к существующему аккаунту
     user.telegramId = saneTelegramUser.id;
     user.telegramUsername = saneTelegramUser.username;
+    user.telegramLanguage = saneTelegramUser.language_code || user.telegramLanguage;
+    if (!user.tgLinkedAt) user.tgLinkedAt = new Date();
     
     // Обновляем имя, если оно не было установлено
     if (!user.name || user.name === 'User') {
@@ -460,6 +471,8 @@ const linkTelegramForAuthed = async (req, res) => {
 
     user.telegramId = saneTelegramUser.id;
     user.telegramUsername = saneTelegramUser.username;
+    user.telegramLanguage = saneTelegramUser.language_code || user.telegramLanguage;
+    if (!user.tgLinkedAt) user.tgLinkedAt = new Date();
     if (!user.name || user.name === 'User') {
       user.name = saneTelegramUser.name || `${saneTelegramUser.first_name || ''}${saneTelegramUser.last_name ? ' ' + saneTelegramUser.last_name : ''}`.trim() || user.name;
     }

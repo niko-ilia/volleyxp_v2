@@ -638,22 +638,33 @@ export default function ProfilePage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="rounded border p-3">
-                <div className="text-xs text-muted-foreground">Matches</div>
-                <div className="text-xl font-semibold">{statsSummary?.total ?? 0}</div>
+            <div className="space-y-4 text-center">
+              {/* Row 1: Matches, Wins, Losses */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="rounded border p-3">
+                  <div className="text-xs text-muted-foreground">Matches</div>
+                  <div className="text-xl font-semibold">{statsSummary?.total ?? 0}</div>
+                </div>
+                <div className="rounded border p-3">
+                  <div className="text-xs text-muted-foreground">Wins</div>
+                  <div className="text-xl font-semibold">{statsSummary?.wins ?? 0}</div>
+                </div>
+                <div className="rounded border p-3">
+                  <div className="text-xs text-muted-foreground">Losses</div>
+                  <div className="text-xl font-semibold">{statsSummary?.losses ?? 0}</div>
+                </div>
               </div>
-              <div className="rounded border p-3">
-                <div className="text-xs text-muted-foreground">Win %</div>
-                <div className="text-xl font-semibold">{statsSummary ? Math.round(statsSummary.winPct * 100) : 0}%</div>
-              </div>
-              <div className="rounded border p-3">
-                <div className="text-xs text-muted-foreground">Wins</div>
-                <div className="text-xl font-semibold">{statsSummary?.wins ?? 0}</div>
-              </div>
-              <div className="rounded border p-3">
-                <div className="text-xs text-muted-foreground">Losses</div>
-                <div className="text-xl font-semibold">{statsSummary?.losses ?? 0}</div>
+
+              {/* Row 2: Win %, Rating */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded border p-3">
+                  <div className="text-xs text-muted-foreground">Win %</div>
+                  <div className="text-xl font-semibold">{statsSummary ? Math.round(statsSummary.winPct * 100) : 0}%</div>
+                </div>
+                <div className="rounded border p-3">
+                  <div className="text-xs text-muted-foreground">Rating</div>
+                  <div className="text-xl font-semibold">{profile?.rating?.toFixed ? profile.rating.toFixed(2) : (profile?.rating ?? '—')}</div>
+                </div>
               </div>
             </div>
           </CardContent>

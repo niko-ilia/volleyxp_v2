@@ -21,6 +21,16 @@ async function webhook(req, res) {
       return res.status(403).json({ message: 'Forbidden' });
     }
     const update = req.body || {};
+    try {
+      const logLine = {
+        kind: update.callback_query ? 'callback_query' : (update.message ? 'message' : (update.my_chat_member || update.chat_member ? 'chat_member' : 'other')),
+        fromId: update.callback_query?.from?.id || update.message?.from?.id || null,
+        fromUsername: update.callback_query?.from?.username || update.message?.from?.username || null,
+        chatId: update.callback_query?.message?.chat?.id || update.message?.chat?.id || null,
+        data: update.callback_query?.data || update.message?.text || null,
+      };
+      console.log('[TG] incoming', JSON.stringify(logLine));
+    } catch (_) {}
 
     // 1) Handle inline callback queries first (they don't have message/chat fields)
     if (update.callback_query && update.callback_query.data) {

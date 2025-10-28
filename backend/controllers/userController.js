@@ -396,7 +396,16 @@ const postToTelegramChannel = async (req, res) => {
     }
     const chatId = chan.id || (chan.username ? ('@' + chan.username) : null);
     if (!chatId) return res.status(400).json({ message: 'Invalid channel' });
-    await sendTelegramMessage({ chatId, text });
+    // Attach inline join button when message contains matchId pattern (optional: pass explicitly later)
+    let replyMarkup = undefined;
+    try {
+      const m = text.match(/\/match\/(\w+)/);
+      const matchId = m ? m[1] : null;
+      if (matchId) {
+        replyMarkup = { inline_keyboard: [[{ text: 'Join match', callback_data: `join:${matchId}` }]] };
+      }
+    } catch {}
+    await sendTelegramMessage({ chatId, text, replyMarkup, disableWebPagePreview: false });
     return res.json({ ok: true });
   } catch (e) {
     console.error('postToTelegramChannel error:', e?.response?.data || e);

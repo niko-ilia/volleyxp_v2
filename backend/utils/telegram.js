@@ -1,10 +1,10 @@
 const axios = require('axios');
 
-async function sendTelegramMessage({ chatId, text, parseMode }) {
+async function sendTelegramMessage({ chatId, text, parseMode, replyMarkup, disableWebPagePreview }) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error('Missing TELEGRAM_BOT_TOKEN');
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const payload = { chat_id: chatId, text, parse_mode: parseMode };
+  const payload = { chat_id: chatId, text, parse_mode: parseMode, reply_markup: replyMarkup, disable_web_page_preview: disableWebPagePreview };
   await axios.post(url, payload);
 }
 
@@ -46,5 +46,15 @@ module.exports.botGetChat = botGetChat;
 module.exports.botGetChatMember = botGetChatMember;
 module.exports.getMe = getMe;
 module.exports.isBotInChat = isBotInChat;
+
+async function answerCallbackQuery({ callbackQueryId, text, showAlert }) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error('Missing TELEGRAM_BOT_TOKEN');
+  const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
+  const payload = { callback_query_id: callbackQueryId, text, show_alert: !!showAlert };
+  await axios.post(url, payload);
+}
+
+module.exports.answerCallbackQuery = answerCallbackQuery;
 
 

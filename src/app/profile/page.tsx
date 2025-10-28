@@ -574,7 +574,7 @@ export default function ProfilePage() {
                     try {
                       const res = await authFetchWithRetry('/api/users/telegram-channel/verify', { method: 'POST' });
                       const txt = await res.text();
-                      let ok = res.ok; let body: any = null; try { body = JSON.parse(txt); } catch {}
+                      const ok = res.ok; let body: any = null; try { body = JSON.parse(txt); } catch {}
                       if (!ok) throw new Error(body?.message || txt || `Error ${res.status}`);
                       setChannelMsg(body?.ok ? 'Channel linked ✔' : 'Bot is not in the channel');
                       // Refresh profile
@@ -605,7 +605,7 @@ export default function ProfilePage() {
                     try {
                       const res = await authFetchWithRetry('/api/users/telegram-channel', { method: 'POST', body: JSON.stringify({ channel: channelInput }) });
                       const txt = await res.text();
-                      let ok = res.ok; let body: any = null; try { body = JSON.parse(txt); } catch {}
+                      const ok = res.ok; let body: any = null; try { body = JSON.parse(txt); } catch {}
                       if (!ok) throw new Error(body?.message || txt || `Error ${res.status}`);
                       setChannelInput('');
                       setChannelMsg('Channel added. Add the bot to the channel and click Verify.');

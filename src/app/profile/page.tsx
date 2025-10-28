@@ -565,11 +565,11 @@ export default function ProfilePage() {
             </div>
             {tgChannel?.id ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <div className="text-sm">
                     {tgChannel.title || (tgChannel.username ? `@${tgChannel.username}` : tgChannel.id)}
                   </div>
-                  <Button size="icon" variant="ghost" aria-label="Unlink channel" disabled={channelBusy} onClick={async () => {
+                  <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Unlink channel" disabled={channelBusy} onClick={async () => {
                     setChannelBusy(true); setChannelMsg(null);
                     try {
                       const res = await authFetchWithRetry('/api/users/telegram-channel', { method: 'DELETE' });

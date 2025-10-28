@@ -402,7 +402,12 @@ const postToTelegramChannel = async (req, res) => {
       const m = text.match(/\/match\/(\w+)/);
       const matchId = m ? m[1] : null;
       if (matchId) {
-        replyMarkup = { inline_keyboard: [[{ text: 'Join match', callback_data: `join:${matchId}` }]] };
+        const origin = process.env.FRONTEND_URL || 'https://volleyxp.com';
+        const url = `${origin.replace(/\/$/, '')}/match/${matchId}`;
+        replyMarkup = { inline_keyboard: [[
+          { text: 'Join match', callback_data: `join:${matchId}` },
+          { text: 'View', url }
+        ]] };
       }
     } catch {}
     await sendTelegramMessage({ chatId, text, replyMarkup, disableWebPagePreview: false });

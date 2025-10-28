@@ -21,6 +21,54 @@ async function webhook(req, res) {
       return res.status(403).json({ message: 'Forbidden' });
     }
     const update = req.body || {};
+
+    // 1) Handle inline callback queries first (they don't have message/chat fields)
+    if (update.callback_query && update.callback_query.data) {
+      const cb = update.callback_query;
+      const data = String(cb.data || '');
+      if (data.startsWith('join:')) {
+        const matchId = data.split(':')[1];
+        try {
+          const telegramId = typeof cb.from?.id === 'string' ? Number(cb.from.id) : cb.from?.id;
+          const user = telegramId ? await User.findOne({ telegramId }) : null;
+          if (!user) {
+            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Link your Telegram in profile first', showAlert: true });
+            return res.json({ ok: true });
+          }
+          const match = await Match.findById(matchId);
+          if (!match) {
+            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Match not found', showAlert: true });
+            return res.json({ ok: true });
+          }
+          if (match.participants.some(p => String(p) === String(user._id))) {
+            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Already joined' });
+            return res.json({ ok: true });
+          }
+          const now = new Date();
+          const joinDeadline = new Date(new Date(match.startDateTime).getTime() + 12 * 60 * 60 * 1000);
+          if (now > joinDeadline) {
+            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Too late for join', showAlert: true });
+            return res.json({ ok: true });
+          }
+          if (Array.isArray(match.participants) && match.participants.length >= match.maxParticipants) {
+            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Match full', showAlert: true });
+            return res.json({ ok: true });
+          }
+          match.participants.push(user._id);
+          match.joinSnapshots = match.joinSnapshots || [];
+          match.joinSnapshots.push({ userId: user._id, rating: user.rating });
+          await match.save();
+          await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Joined!' });
+          return res.json({ ok: true });
+        } catch (e) {
+          await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Error', showAlert: true });
+          return res.json({ ok: true });
+        }
+      }
+      return res.json({ ok: true });
+    }
+
+    // 2) Regular message/membership updates
     const message = update.message || update.edited_message || null;
     const membership = update.my_chat_member || update.chat_member || null;
     const source = message || membership || null;
@@ -62,49 +110,7 @@ async function webhook(req, res) {
       } catch (_) {}
     }
 
-    // Handle Inline "Join match" callback
-    if (update.callback_query && update.callback_query.data) {
-      const cb = update.callback_query;
-      const data = String(cb.data || '');
-      if (data.startsWith('join:')) {
-        const matchId = data.split(':')[1];
-        try {
-          const user = await User.findOne({ telegramId: from.id });
-          if (!user) {
-            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Link your Telegram in profile first', showAlert: true });
-            return res.json({ ok: true });
-          }
-          const match = await Match.findById(matchId);
-          if (!match) {
-            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Match not found', showAlert: true });
-            return res.json({ ok: true });
-          }
-          if (match.participants.some(p => String(p) === String(user._id))) {
-            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Already joined' });
-            return res.json({ ok: true });
-          }
-          const now = new Date();
-          const joinDeadline = new Date(new Date(match.startDateTime).getTime() + 12 * 60 * 60 * 1000);
-          if (now > joinDeadline) {
-            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Too late for join', showAlert: true });
-            return res.json({ ok: true });
-          }
-          if (Array.isArray(match.participants) && match.participants.length >= match.maxParticipants) {
-            await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Match full', showAlert: true });
-            return res.json({ ok: true });
-          }
-          match.participants.push(user._id);
-          match.joinSnapshots = match.joinSnapshots || [];
-          match.joinSnapshots.push({ userId: user._id, rating: user.rating });
-          await match.save();
-          await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Joined!' });
-          return res.json({ ok: true });
-        } catch (e) {
-          await answerCallbackQuery({ callbackQueryId: cb.id, text: 'Error', showAlert: true });
-          return res.json({ ok: true });
-        }
-      }
-    }
+    // (callback handling moved earlier)
 
     return res.json({ ok: true });
   } catch (e) {

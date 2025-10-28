@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const telegramController = require('../controllers/telegramController');
 
+// Trace hits to this router for debugging
+router.use((req, _res, next) => {
+  try {
+    console.log('[TG] router hit', req.method, req.originalUrl, req.headers['content-type'] || '');
+  } catch {}
+  next();
+});
+
 // Telegram webhook endpoint (no auth)
 router.post('/webhook', telegramController.webhook);
 

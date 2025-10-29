@@ -59,6 +59,7 @@ export default function ProfileStatsPage() {
                     <TableHead className="text-right">Wins</TableHead>
                     <TableHead className="text-right">Losses</TableHead>
                     <TableHead className="text-right">Games</TableHead>
+                    <TableHead className="text-right">Win %</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -68,6 +69,7 @@ export default function ProfileStatsPage() {
                       <TableCell className="text-right">{r.wins}</TableCell>
                       <TableCell className="text-right">{r.losses}</TableCell>
                       <TableCell className="text-right">{r.games}</TableCell>
+                      <TableCell className="text-right">{(() => { const d = r.wins + r.losses; return d ? Math.round((r.wins / d) * 100) : 0; })()}%</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -98,6 +100,7 @@ export default function ProfileStatsPage() {
                     <TableHead className="text-right">Wins</TableHead>
                     <TableHead className="text-right">Losses</TableHead>
                     <TableHead className="text-right">Games</TableHead>
+                    <TableHead className="text-right">Win %</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -107,6 +110,7 @@ export default function ProfileStatsPage() {
                       <TableCell className="text-right">{r.wins}</TableCell>
                       <TableCell className="text-right">{r.losses}</TableCell>
                       <TableCell className="text-right">{r.games}</TableCell>
+                      <TableCell className="text-right">{(() => { const d = r.wins + r.losses; return d ? Math.round((r.wins / d) * 100) : 0; })()}%</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

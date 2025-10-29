@@ -17,7 +17,7 @@ echo "⏳ Ожидание освобождения портов..."
 sleep 2
 
 echo "🚀 Запуск бэкенда..."
-cd backend && NODE_ENV=development PORT=3000 npm start &
+cd backend && NODE_ENV=development PORT=3000 npm run dev &
 BACKEND_PID=$!
 
 echo "⏳ Ожидание запуска бэкенда..."

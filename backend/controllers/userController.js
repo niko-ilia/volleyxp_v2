@@ -296,6 +296,80 @@ const getMatchHistoryByUserId = async (req, res) => {
   }
 };
 
+// GET /api/users/profile-stats — aggregated teammates/opponents performance for authed user (games-based)
+const getProfileStatsAggregates = async (req, res) => {
+  try {
+    const meId = req.user?._id;
+    const user = await User.findById(meId).select('ratingHistory');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const history = Array.isArray(user.ratingHistory) ? user.ratingHistory : [];
+    if (history.length === 0) return res.json({ teammates: [], opponents: [] });
+
+    const matchIds = history.map(rh => rh.matchId).filter(Boolean);
+    const matches = await Match.find({ _id: { $in: matchIds } }).populate('participants', 'name email');
+    const idToInfo = new Map(); // id -> { name, email }
+    for (const m of matches) {
+      if (Array.isArray(m?.participants)) {
+        for (const p of m.participants) {
+          const id = p?._id?.toString();
+          if (id) idToInfo.set(id, { name: p.name, email: p.email });
+        }
+      }
+    }
+
+    const me = meId?.toString();
+    const teamMap = new Map(); // id -> { id, name, email, wins, losses, games }
+    const oppMap = new Map();
+
+    for (const rh of history) {
+      const details = Array.isArray(rh?.details) ? rh.details : [];
+      for (const g of details) {
+        const team1 = Array.isArray(g?.team1) ? g.team1.map(x => x.toString()) : [];
+        const team2 = Array.isArray(g?.team2) ? g.team2.map(x => x.toString()) : [];
+        const in1 = me && team1.includes(me);
+        const in2 = me && team2.includes(me);
+        if (!in1 && !in2) continue;
+        const myTeam = in1 ? team1 : team2;
+        const oppTeam = in1 ? team2 : team1;
+        const s1 = Number(g?.team1Score ?? 0);
+        const s2 = Number(g?.team2Score ?? 0);
+        const hasWinner = s1 !== s2;
+        const myWin = in1 ? (s1 > s2) : (s2 > s1);
+
+        // teammates
+        for (const pid of myTeam) {
+          if (pid === me) continue;
+          const info = idToInfo.get(pid) || {};
+          const row = teamMap.get(pid) || { id: pid, name: info.name || info.email || pid, email: info.email, wins: 0, losses: 0, games: 0 };
+          row.games += 1;
+          if (hasWinner) {
+            if (myWin) row.wins += 1; else row.losses += 1;
+          }
+          teamMap.set(pid, row);
+        }
+
+        // opponents
+        for (const pid of oppTeam) {
+          const info = idToInfo.get(pid) || {};
+          const row = oppMap.get(pid) || { id: pid, name: info.name || info.email || pid, email: info.email, wins: 0, losses: 0, games: 0 };
+          row.games += 1;
+          if (hasWinner) {
+            if (myWin) row.wins += 1; else row.losses += 1;
+          }
+          oppMap.set(pid, row);
+        }
+      }
+    }
+
+    const teammates = Array.from(teamMap.values()).sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses));
+    const opponents = Array.from(oppMap.values()).sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses));
+    return res.json({ teammates, opponents });
+  } catch (error) {
+    console.error('getProfileStatsAggregates error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // Helpers for Telegram channel parsing
 function normalizeChannelInput(input) {
   if (!input || typeof input !== 'string') return null;
@@ -418,4 +492,92 @@ const postToTelegramChannel = async (req, res) => {
   }
 };
 
-module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel };
+// GET /api/users/profile-overview?page=1&pageSize=5
+// Returns: { profile, summary: { total, wins, losses, winPct }, matches: { items: [...], total, totalPages, currentPage } }
+const getProfileOverview = async (req, res) => {
+  try {
+    const meId = req.user?._id;
+    const user = await User.findById(meId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Build summary from ratingHistory (games-based)
+    const rh = Array.isArray(user.ratingHistory) ? user.ratingHistory : [];
+    let totalFinished = 0;
+    let sumWins = 0;
+    let sumLosses = 0;
+    const perMatchStats = new Map(); // matchId -> { wins, losses }
+    for (const entry of rh) {
+      const details = Array.isArray(entry?.details) ? entry.details : [];
+      if (details.length === 0) continue; // not finished
+      totalFinished += 1;
+      let w = 0, l = 0;
+      for (const g of details) {
+        if (g?.score === 1) w += 1;
+        else if (g?.score === 0) l += 1;
+        // draws (0.5) do not affect wins/losses
+      }
+      sumWins += w; sumLosses += l;
+      if (entry?.matchId) perMatchStats.set(String(entry.matchId), { wins: w, losses: l });
+    }
+    const gamesTotal = sumWins + sumLosses;
+    const summary = { total: totalFinished, wins: sumWins, losses: sumLosses, winPct: gamesTotal ? sumWins / gamesTotal : 0 };
+
+    // Pagination params
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '5', 10) || 5, 1), 50);
+    const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+
+    // Fetch only matches where user is creator or participant
+    const query = { $or: [{ creator: meId }, { participants: meId }] };
+    const total = await Match.countDocuments(query);
+    const items = await Match.find(query)
+      .select('title place level startDateTime status')
+      .sort({ startDateTime: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+
+    // Attach per-match stats for finished ones, if available from ratingHistory
+    const itemsWithStats = items.map((m) => {
+      const id = String(m._id);
+      const stat = perMatchStats.get(id) || null;
+      return {
+        _id: m._id,
+        title: m.title,
+        place: m.place,
+        level: m.level,
+        startDateTime: m.startDateTime,
+        status: m.status,
+        stats: stat
+      };
+    });
+
+    const pageResp = {
+      items: itemsWithStats,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      currentPage: page
+    };
+
+    return res.json({
+      profile: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        telegramId: user.telegramId,
+        telegramUsername: user.telegramUsername,
+        telegramChannel: user.telegramChannel,
+        rating: user.rating,
+        createdAt: user.createdAt,
+        emailConfirmed: user.emailConfirmed,
+        preferences: user.preferences
+      },
+      summary,
+      matches: pageResp
+    });
+  } catch (e) {
+    console.error('getProfileOverview error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel, getProfileStatsAggregates, getProfileOverview };

@@ -39,6 +39,8 @@ export default function ProfilePage() {
   const PAGE_SIZE = 5;
   const [statsByMatchId, setStatsByMatchId] = React.useState<Record<string, { wins: number; losses: number }>>({});
   const [historyLoaded, setHistoryLoaded] = React.useState(false);
+  const [matchesTotalPages, setMatchesTotalPages] = React.useState(1);
+  const [matchesTotal, setMatchesTotal] = React.useState(0);
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
   // Telegram linking UI state
@@ -221,151 +223,48 @@ export default function ProfilePage() {
     };
   }, [user]);
 
+  // Unified overview loader: profile summary + paginated matches with embedded stats
   React.useEffect(() => {
-    // Prefer compact user history to compute stats in one request
     let cancelled = false;
-    async function loadHistory() {
+    async function loadOverview(p: number) {
       try {
-        const res = await authFetchWithRetry('/api/users/match-history');
-        if (!res.ok) throw new Error('Failed to load history');
-        const items = await res.json();
+        setMatchesError(null);
+        const res = await authFetchWithRetry(`/api/users/profile-overview?page=${p}&pageSize=${PAGE_SIZE}`);
+        if (!res.ok) throw new Error(`Failed to load overview: ${res.status}`);
+        const body = await res.json();
         if (cancelled) return;
-        // Build per-match stats map and overall summary (games-based) using finished items only
+        const sum = body?.summary;
+        if (sum && typeof sum === 'object') {
+          setStatsSummary({ total: Number(sum.total||0), wins: Number(sum.wins||0), losses: Number(sum.losses||0), winPct: Number(sum.winPct||0) });
+        }
+        const pageBlock = body?.matches;
+        const items = Array.isArray(pageBlock?.items) ? pageBlock.items : [];
+        setMatches(items.map((m: any) => ({ _id: m._id, place: m.place, title: m.title, startDateTime: m.startDateTime, level: m.level, status: m.status })));
+        setMatchesTotalPages(Number(pageBlock?.totalPages || 1));
+        setMatchesTotal(Number(pageBlock?.total || 0));
+        // Build stats map from embedded stats
         const per: Record<string, { wins: number; losses: number }> = {};
-        let wins = 0, losses = 0, total = 0; // wins/losses here are GAME counts
-        if (Array.isArray(items)) {
-          for (const it of items) {
-            if (!it?.matchId) continue;
-            // считаем только завершённые
-            const isFinished = it?.status === 'finished' || (typeof it?.wins === 'number' || typeof it?.losses === 'number');
-            if (isFinished) {
-              total += 1;
-              const w = Number(it?.wins ?? 0);
-              const l = Number(it?.losses ?? 0);
-              per[it.matchId] = { wins: w, losses: l };
-              wins += w; losses += l; // aggregate by games, not matches
-            }
+        for (const m of items) {
+          if (m?.stats && (typeof m.stats.wins === 'number' || typeof m.stats.losses === 'number')) {
+            per[m._id] = { wins: Number(m.stats.wins||0), losses: Number(m.stats.losses||0) };
           }
         }
-        setStatsByMatchId(prev => ({ ...per, ...prev }));
-        const gamesTotal = wins + losses;
-        setStatsSummary({ total, wins, losses, winPct: gamesTotal ? wins / gamesTotal : 0 });
-      } catch (_) {
-        // ignore — fallback to per-match stats loader below
-      } finally {
-        if (!cancelled) setHistoryLoaded(true);
-      }
-    }
-    if (user) loadHistory();
-    return () => { cancelled = true; };
-  }, [user]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    async function loadMatches() {
-      setMatchesError(null);
-      try {
-        const res = await authFetchWithRetry(`/api/matches`);
-        if (!res.ok) throw new Error(`Failed to load matches: ${res.status}`);
-        const all = await res.json();
-        // Keep only matches where current user is a participant or creator
-        const uid = (user && (user._id || (user as any).id)) || null;
-        const my = Array.isArray(all)
-          ? all.filter((m: any) => {
-              const creatorId = m?.creator?._id || m?.creator;
-              const partIds: string[] = Array.isArray(m?.participants)
-                ? m.participants.map((p: any) => p?._id || p).filter(Boolean)
-                : [];
-              return uid && (creatorId === uid || partIds.includes(uid));
-            })
-          : [];
-        // Sort by date (newest first)
-        my.sort((a: any, b: any) => new Date(b.startDateTime).getTime() - new Date(a.startDateTime).getTime());
-         if (!cancelled) {
-          setMatches(my);
-          setPage(1);
-        }
+        setStatsByMatchId(per);
+        setHistoryLoaded(true);
       } catch (e: any) {
-        if (!cancelled) setMatchesError(e?.message || "Failed to load matches");
+        setHistoryLoaded(true);
+        setMatchesError(e?.message || 'Failed to load overview');
       }
     }
-    if (user) loadMatches();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
-  // Load result stats for visible page matches
-  React.useEffect(() => {
-    if (!matches || !user) return;
-    if (historyLoaded) return; // уже получили из user history — не дёргаем per-match
-    const uid = (user && (user._id || (user as any).id)) || null;
-    let cancelled = false;
-    const list = matches as any[]; // snapshot non-null value for TS
-    async function loadStatsForPage() {
-      const slice = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-      await Promise.all(slice.map(async (m) => {
-        // Запрашиваем статистику только для завершённых матчей,
-        // иначе бэкенд корректно возвращает 404 и засоряет консоль
-        if (!m?._id || m?.status !== 'finished' || statsByMatchId[m._id]) return;
-        if (requestedStatsRef.current.has(m._id)) return; // уже запрашивали
-        requestedStatsRef.current.add(m._id);
-        try {
-          const res = await authFetchWithRetry(`/api/results/${m._id}/stats`);
-          if (!res.ok) return; // no result yet or error — skip silently
-          const data = await res.json();
-          const me = Array.isArray(data?.item?.participants)
-            ? data.item.participants.find((p: any) => (p.userId?._id || p.userId) === uid)
-            : null;
-          const next = { wins: me?.wins ?? 0, losses: me?.losses ?? 0 };
-          if (!cancelled) setStatsByMatchId((prev) => ({ ...prev, [m._id]: next }));
-        } catch {}
-      }));
-    }
-    loadStatsForPage();
+    if (user) loadOverview(page);
     return () => { cancelled = true; };
-  }, [matches, page, PAGE_SIZE, user, statsByMatchId]);
+  }, [user, page]);
 
-  // Compute full summary across all finished matches
-  React.useEffect(() => {
-    if (!matches || !user) return;
-    if (historyLoaded) return; // summary уже вычислен из history
-    let cancelled = false;
-    const uid = (user && (user._id || (user as any).id)) || null;
-    const list = matches as any[]; // capture non-null value for TS
-    async function computeSummary() {
-      const finished = list.filter((m: any) => m?.status === 'finished');
-      let wins = 0; let losses = 0; const total = finished.length; // wins/losses are GAME counts
-      // Fetch stats for those we don't have yet and aggregate (by games)
-      for (const m of finished) {
-        if (!m?._id) continue;
-        if (statsByMatchId[m._id]) {
-          const small = statsByMatchId[m._id];
-          wins += Number(small.wins ?? 0); losses += Number(small.losses ?? 0);
-          continue;
-        }
-        if (requestedStatsRef.current.has(m._id)) continue;
-        requestedStatsRef.current.add(m._id);
-        try {
-          const res = await authFetchWithRetry(`/api/results/${m._id}/stats`);
-          if (!res.ok) continue;
-          const data = await res.json();
-          const me = Array.isArray(data?.item?.participants)
-            ? data.item.participants.find((p: any) => (p.userId?._id || p.userId) === uid)
-            : null;
-          wins += Number(me?.wins ?? 0); losses += Number(me?.losses ?? 0);
-          const small = { wins: me?.wins ?? 0, losses: me?.losses ?? 0 };
-          setStatsByMatchId(prev => ({ ...prev, [m._id]: prev[m._id] || small }));
-        } catch {}
-      }
-      if (!cancelled) {
-        const gamesTotal = wins + losses;
-        setStatsSummary({ total, wins, losses, winPct: gamesTotal ? wins / gamesTotal : 0 });
-      }
-    }
-    computeSummary();
-    return () => { cancelled = true; };
-  }, [matches, user]);
+  // Removed old matches loader — overview provides paginated matches
+
+  // Removed per-match fallback stats loader — overview includes stats
+
+  // Removed summary computation — overview provides summary
 
   const onSave = React.useCallback(async () => {
     if (!name.trim()) return;
@@ -693,7 +592,7 @@ export default function ProfilePage() {
               <div className="text-sm text-muted-foreground">No matches yet</div>
             ) : (
               <div className="space-y-3">
-                {(matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)).map((m) => {
+                {(matches).map((m) => {
                   const dt = new Date(m.startDateTime);
                   const dateStr = dt.toLocaleDateString("en-US");
                   const timeStr = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -720,15 +619,8 @@ export default function ProfilePage() {
 
                 <div className="flex items-center justify-between pt-2">
                   <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Back</Button>
-                  <div className="text-xs text-muted-foreground">
-                    Page {page} of {Math.max(1, Math.ceil(matches.length / PAGE_SIZE))}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= Math.ceil(matches.length / PAGE_SIZE)}
-                    onClick={() => setPage((p) => Math.min(Math.ceil(matches.length / PAGE_SIZE), p + 1))}
-                  >Next</Button>
+                  <div className="text-xs text-muted-foreground">Page {page} of {matchesTotalPages}</div>
+                  <Button variant="outline" size="sm" disabled={page >= matchesTotalPages} onClick={() => setPage((p) => Math.min(matchesTotalPages, p + 1))}>Next</Button>
                 </div>
               </div>
             )}

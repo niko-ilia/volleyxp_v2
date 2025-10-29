@@ -24,64 +24,14 @@ export default function ProfileStatsPage() {
       if (!user) return;
       setLoading(true);
       try {
-        // 1) История матчей пользователя
-        const res = await authFetchWithRetry(`/api/users/match-history`);
+        const res = await authFetchWithRetry(`/api/users/profile-stats`);
         if (!res.ok) return;
-        const items: any[] = await res.json();
+        const body = await res.json();
         if (cancelled) return;
-
-        const myId = user._id || (user as any).id;
-        const teamMap = new Map<string, Row>();
-        const oppMap = new Map<string, Row>();
-
-        // 2) Для завершённых матчей — берём сырой результат (с составами геймов) + участников матча
-        const finished = (Array.isArray(items) ? items : []).filter((i: any) => i?.status === 'finished' || (typeof i?.wins === 'number' || typeof i?.losses === 'number'));
-        await Promise.all(finished.map(async (it: any) => {
-          const mid = it?.matchId || it?._id || it?.id;
-          if (!mid) return;
-          const [resResult, resMatch] = await Promise.all([
-            authFetchWithRetry(`/api/results/${mid}`),
-            authFetchWithRetry(`/api/matches/${mid}`)
-          ]);
-          if (!resResult.ok || !resMatch.ok) return;
-          const result: any = await resResult.json();
-          const match: any = await resMatch.json();
-          const idToName = new Map<string, { name?: string; email?: string }>();
-          (Array.isArray(match?.participants) ? match.participants : []).forEach((p: any) => {
-            const pid = p?._id || p?.id; if (!pid) return; idToName.set(String(pid), { name: p?.name, email: p?.email });
-          });
-          const games: any[] = Array.isArray(result?.games) ? result.games : [];
-          for (const g of games) {
-            const team1: string[] = Array.isArray(g?.team1) ? g.team1.map((x: any) => String(x)) : [];
-            const team2: string[] = Array.isArray(g?.team2) ? g.team2.map((x: any) => String(x)) : [];
-            const myIn1 = team1.includes(myId);
-            const myIn2 = team2.includes(myId);
-            if (!myIn1 && !myIn2) continue; // не участвовал в этом гейме
-            const myTeam = myIn1 ? team1 : team2;
-            const oppTeam = myIn1 ? team2 : team1;
-            const s1 = Number(g?.team1Score ?? 0); const s2 = Number(g?.team2Score ?? 0);
-            const myWin = myIn1 ? (s1 > s2) : (s2 > s1);
-            const hasWinner = s1 !== s2;
-            // teammates
-            for (const pid of myTeam) {
-              if (pid === myId) continue;
-              const nm = idToName.get(pid) || {};
-              const row = teamMap.get(pid) || { name: nm.name || nm.email || pid, email: nm.email, wins: 0, losses: 0, games: 0 };
-              row.games += 1; if (hasWinner) { if (myWin) row.wins += 1; else row.losses += 1; }
-              teamMap.set(pid, row);
-            }
-            // opponents
-            for (const pid of oppTeam) {
-              const nm = idToName.get(pid) || {};
-              const row = oppMap.get(pid) || { name: nm.name || nm.email || pid, email: nm.email, wins: 0, losses: 0, games: 0 };
-              row.games += 1; if (hasWinner) { if (myWin) row.wins += 1; else row.losses += 1; }
-              oppMap.set(pid, row);
-            }
-          }
-        }));
-
-        setRowsTeam(Array.from(teamMap.values()).sort((a,b)=> (b.wins-a.wins)||(a.losses-b.losses)));
-        setRowsOpp(Array.from(oppMap.values()).sort((a,b)=> (b.wins-a.wins)||(a.losses-b.losses)));
+        const teammates = Array.isArray(body?.teammates) ? body.teammates : [];
+        const opponents = Array.isArray(body?.opponents) ? body.opponents : [];
+        setRowsTeam(teammates.map((r: any) => ({ name: r.name || r.email || '', email: r.email, wins: Number(r.wins||0), losses: Number(r.losses||0), games: Number(r.games||0) })));
+        setRowsOpp(opponents.map((r: any) => ({ name: r.name || r.email || '', email: r.email, wins: Number(r.wins||0), losses: Number(r.losses||0), games: Number(r.games||0) })));
       } finally {
         if (!cancelled) setLoading(false);
       }

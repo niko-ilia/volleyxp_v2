@@ -6,12 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import SSOButtons from "@/components/auth/SSOButtons";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { consumeSavedNextPath, sanitizeNextPath, saveNextPath } from "@/lib/auth/next";
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const { loginWithPassword } = useAuth();
@@ -70,6 +70,14 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md px-4 py-16 text-center text-muted-foreground">Loading…</div>}>
+      <LoginInner />
+    </Suspense>
   );
 }
 

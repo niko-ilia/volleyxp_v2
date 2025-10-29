@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveAuth } from "@/lib/auth/storage";
+import { consumeSavedNextPath, sanitizeNextPath, saveNextPath } from "@/lib/auth/next";
 
 function CallbackInner() {
   const sp = useSearchParams();
@@ -11,10 +12,13 @@ function CallbackInner() {
     const token = sp.get("token");
     const refreshToken = sp.get("refreshToken");
     const userRaw = sp.get("user");
+    const nextParam = sanitizeNextPath(sp.get("next"));
+    if (nextParam) try { saveNextPath(nextParam); } catch {}
     if (token) {
       const user = userRaw ? JSON.parse(userRaw) : { email: "", name: "" };
       saveAuth(token, refreshToken, user);
-      router.replace("/");
+      const next = consumeSavedNextPath();
+      router.replace(next || "/");
     } else {
       router.replace("/login");
     }

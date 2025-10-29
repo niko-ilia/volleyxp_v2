@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { authFetchWithRetry } from "@/lib/auth/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,7 @@ function normalizeId(x: any): string | null {
 export default function ConfirmResultPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const pathname = usePathname();
   const matchId = params?.id;
   const { user, loading } = useAuth();
 
@@ -64,8 +65,11 @@ export default function ConfirmResultPage() {
   const [wipScore2, setWipScore2] = React.useState<string>("");
 
   React.useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [loading, user, router]);
+    if (!loading && !user) {
+      const next = pathname ? `?next=${encodeURIComponent(String(pathname))}` : "";
+      router.replace(`/login${next}`);
+    }
+  }, [loading, user, router, pathname]);
 
   React.useEffect(() => {
     let cancelled = false;

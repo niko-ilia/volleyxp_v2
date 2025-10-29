@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { consumeSavedNextPath, sanitizeNextPath, saveNextPath } from "@/lib/auth/next";
 
 export default function TgLoginBridgePage() {
   const [status, setStatus] = useState("Authorizing...");
@@ -12,6 +13,10 @@ export default function TgLoginBridgePage() {
         const params: Record<string, string> = {};
         // query params
         url.searchParams.forEach((v, k) => { params[k] = v; });
+        try {
+          const nextParam = sanitizeNextPath(url.searchParams.get('next'));
+          if (nextParam) saveNextPath(nextParam);
+        } catch {}
         // hash params (oauth.telegram.org часто кладёт сюда)
         try {
           const h = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
@@ -61,7 +66,8 @@ export default function TgLoginBridgePage() {
         // If we are top-level (no opener/parent), redirect to home
         try {
           if (window.top === window.self) {
-            window.location.replace('/');
+            const next = consumeSavedNextPath();
+            window.location.replace(next || '/');
           }
         } catch {}
       } catch (e: any) {

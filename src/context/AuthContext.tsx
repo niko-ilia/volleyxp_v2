@@ -72,9 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveAuth(data.token, data.refreshToken ?? null, data.user);
     setToken(data.token);
     setUser(data.user);
-    router.push("/");
     return true;
-  }, [router]);
+  }, []);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     const res = await apiFetch("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, password }) });
@@ -83,9 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveAuth(data.token, data.refreshToken ?? null, data.user);
     setToken(data.token);
     setUser(data.user);
-    router.push("/");
     return true;
-  }, [router]);
+  }, []);
 
   const logout = useCallback(() => {
     clearAuth();

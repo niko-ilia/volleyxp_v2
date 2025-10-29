@@ -6,14 +6,24 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import SSOButtons from "@/components/auth/SSOButtons";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter, useSearchParams } from "next/navigation";
+import { consumeSavedNextPath, sanitizeNextPath, saveNextPath } from "@/lib/auth/next";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
   const { loginWithPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const next = sanitizeNextPath(sp?.get("next"));
+      if (next) saveNextPath(next);
+    } catch {}
+  }, [sp]);
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <Card>
@@ -42,7 +52,16 @@ export default function LoginPage() {
           <Button className="w-full" onClick={async ()=>{
             setError(null);
             const ok = await loginWithPassword(email, password);
-            if (!ok) setError("Invalid credentials");
+            if (!ok) {
+              setError("Invalid credentials");
+              return;
+            }
+            try {
+              const next = consumeSavedNextPath();
+              router.replace(next || "/");
+            } catch {
+              router.replace("/");
+            }
           }}>Sign in</Button>
         </CardContent>
         <CardFooter className="text-sm text-muted-foreground">

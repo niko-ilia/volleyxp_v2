@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/auth/api";
 import { saveAuth } from "@/lib/auth/storage";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { consumeSavedNextPath, getSavedNextPath } from "@/lib/auth/next";
 
 type Props = {
   className?: string;
@@ -50,7 +51,8 @@ export default function SSOButtons({ className }: Props) {
           if (d?.token && d?.user) {
             saveAuth(d.token, d.refreshToken ?? null, d.user);
             try { await refreshUser(); } catch {}
-            router.push('/');
+            const next = consumeSavedNextPath();
+            router.push(next || '/');
           }
         } catch {}
       }
@@ -75,7 +77,8 @@ export default function SSOButtons({ className }: Props) {
           const data = await res.json();
           saveAuth(data.token, data.refreshToken ?? null, data.user);
           try { await refreshUser(); } catch {}
-          router.push("/");
+          const next = consumeSavedNextPath();
+          router.push(next || "/");
         } catch (e) {
           console.error(e);
           alert("Telegram auth failed");
@@ -123,7 +126,8 @@ export default function SSOButtons({ className }: Props) {
         const data = await res.json();
         saveAuth(data.token, data.refreshToken ?? null, data.user);
         try { await refreshUser(); } catch {}
-        router.push("/");
+        const next = consumeSavedNextPath();
+        router.push(next || "/");
         return;
       }
       // Web: trigger hidden widget programmatically
@@ -171,7 +175,7 @@ export default function SSOButtons({ className }: Props) {
   return (
     <div className={className}>
       <Button variant="outline" className="w-full gap-3" asChild>
-        <a href={`${apiBase}/api/auth/google`}>
+        <a href={`${apiBase}/api/auth/google`} onClick={() => { try { /* best-effort ensure next is preserved */ getSavedNextPath(); } catch {} }}>
           <Image src="/google.svg" alt="Google" width={20} height={20} />
           Continue with Google
         </a>

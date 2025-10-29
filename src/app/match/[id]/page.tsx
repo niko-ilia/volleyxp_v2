@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { authFetchWithRetry } from "@/lib/auth/api";
 import { Button } from "@/components/ui/button";
@@ -68,11 +68,12 @@ function maskEmail(email: string): string {
 export default function MatchPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const id = String(params?.id || "");
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [match, setMatch] = useState<Match | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [matchLoading, setMatchLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [result, setResult] = useState<Result | null>(null);
@@ -117,7 +118,7 @@ export default function MatchPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      setMatchLoading(true);
       setError(null);
       try {
         const res = await authFetchWithRetry(`/api/matches/${id}`);
@@ -127,14 +128,21 @@ export default function MatchPage() {
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Failed to load match");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setMatchLoading(false);
       }
     }
-    if (id) load();
+    if (id && user) load();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, user]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      const next = pathname ? `?next=${encodeURIComponent(String(pathname))}` : "";
+      router.replace(`/login${next}`);
+    }
+  }, [authLoading, user, pathname, router]);
 
   // Load result draft/record for this match (if any)
   useEffect(() => {
@@ -423,7 +431,8 @@ export default function MatchPage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  if (authLoading || matchLoading) return <div className="p-6">Loading…</div>;
+  if (!user) return null;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!match) return <div className="p-6">Not found</div>;
 

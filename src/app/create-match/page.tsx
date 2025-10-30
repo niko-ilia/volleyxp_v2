@@ -335,7 +335,7 @@ export default function CreateMatchPage() {
             <div className="flex items-center gap-3">
               <Switch id="post-toggle" checked={postTarget === 'tg_channel'} onCheckedChange={(v) => setPostTarget(v ? 'tg_channel' : 'none')} />
               <Label htmlFor="post-toggle" className="cursor-pointer">
-                post to tg channel: {profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)}
+                Post to tg channel: {profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)}
               </Label>
             </div>
           ) : null}

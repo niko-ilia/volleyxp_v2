@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/auth/api";
+import { apiFetch, authFetchWithRetry } from "@/lib/auth/api";
 import Link from "next/link";
 
 type MatchCard = {
@@ -23,7 +23,12 @@ export default function MatchesPreview({ mockOnly = false, title, fallbackToMock
     let cancelled = false;
     (async () => {
       try {
-        const res = await apiFetch("/api/matches/public?future=1");
+        // Try authenticated endpoint first to include user's private matches
+        let res = await authFetchWithRetry("/api/matches?future=1");
+        if (res.status === 401) {
+          // Not authenticated: fall back to public listing
+          res = await apiFetch("/api/matches/public?future=1");
+        }
         if (!res.ok) throw new Error("Failed to load matches");
         const data = await res.json();
         if (cancelled) return;
@@ -43,7 +48,7 @@ export default function MatchesPreview({ mockOnly = false, title, fallbackToMock
     return () => { cancelled = true; };
   }, [mockOnly]);
 
-  const header = title ?? (mockOnly ? "What a match looks like" : "Upcoming public matches");
+  const header = title ?? (mockOnly ? "What a match looks like" : "Upcoming matches");
 
   const mock: MatchCard[] = [
     {
@@ -86,7 +91,7 @@ export default function MatchesPreview({ mockOnly = false, title, fallbackToMock
       {error ? (
         <p className="text-center text-sm text-destructive">{error}</p>
       ) : show.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground">No upcoming public matches yet.</p>
+        <p className="text-center text-sm text-muted-foreground">No upcoming matches yet.</p>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
            {show.map((m) => (

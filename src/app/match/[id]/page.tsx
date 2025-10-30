@@ -36,6 +36,8 @@ type Match = {
   status?: string;
   joinSnapshots?: { userId: string; rating: number; joinedAt?: string }[];
   maxParticipants?: number;
+  type?: 'match' | 'training';
+  coach?: { _id?: string; name?: string; email?: string } | string | null;
 };
 
 type Result = {
@@ -99,6 +101,8 @@ export default function MatchPage() {
       duration: match.duration,
       participants: participantsForShare,
       creator: match.creator,
+      type: match.type,
+      coachName: (typeof match.coach === 'object' && match.coach) ? ((match.coach as any).name || (match.coach as any).email) : undefined,
     });
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const originNoWww = origin.replace("://www.", "://");

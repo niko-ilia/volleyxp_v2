@@ -176,7 +176,8 @@ const getMatchById = async (req, res) => {
     const match = await Match.findById(req.params.id)
       .populate('creator', 'name email')
       .populate('participants', 'name email rating')
-      .populate('courtId', 'name address status');
+      .populate('courtId', 'name address status')
+      .populate('coach', 'name email');
 
     if (!match) {
       return res.status(404).json({ code: 'MATCH_NOT_FOUND' });

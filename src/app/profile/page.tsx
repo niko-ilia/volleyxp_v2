@@ -657,7 +657,13 @@ export default function ProfilePage() {
                       </defs>
                       <CartesianGrid vertical={false} strokeDasharray="3 3" />
                       <XAxis dataKey="label" hide />
-                      <YAxis tickLine={false} axisLine={false} width={32} domain={chartDomain} />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        width={40}
+                        domain={chartDomain}
+                        tickFormatter={(v: number) => (Number.isFinite(v) ? v.toFixed(2) : String(v))}
+                      />
                       <ChartTooltip
                         content={
                           <ChartTooltipContent

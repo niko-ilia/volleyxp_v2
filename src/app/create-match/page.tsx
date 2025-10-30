@@ -221,21 +221,19 @@ export default function CreateMatchPage() {
             <Label htmlFor="title">Match title</Label>
             <Input id="title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Morning beach run" />
           </div>
-          {isTraining ? (
-            <div className="space-y-2">
-              <Label>Coach</Label>
-              <Select value={coachId || ""} onValueChange={(v) => setCoachId(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={coaches.length ? "Select coach" : "No coaches available"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {coaches.map(c => (
-                    <SelectItem key={c._id} value={c._id}>{c.name || c.email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
+          <div className={"space-y-2 " + (!isTraining ? "opacity-0 pointer-events-none" : "")} aria-hidden={!isTraining}>
+            <Label>Coach</Label>
+            <Select value={coachId || ""} onValueChange={(v) => setCoachId(v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={coaches.length ? "Select coach" : "No coaches available"} />
+              </SelectTrigger>
+              <SelectContent>
+                {coaches.map(c => (
+                  <SelectItem key={c._id} value={c._id}>{c.name || c.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -334,14 +332,11 @@ export default function CreateMatchPage() {
             <Label htmlFor="training-toggle" className="cursor-pointer">Training</Label>
           </div>
           {(profile?.telegramChannel?.linked) ? (
-            <div className="space-y-1">
-              <Label>Post to</Label>
-              <div className="flex items-center gap-3">
-                <Switch id="post-toggle" checked={postTarget === 'tg_channel'} onCheckedChange={(v) => setPostTarget(v ? 'tg_channel' : 'none')} />
-                <Label htmlFor="post-toggle" className="cursor-pointer">
-                  Telegram channel ({profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)})
-                </Label>
-              </div>
+            <div className="flex items-center gap-3">
+              <Switch id="post-toggle" checked={postTarget === 'tg_channel'} onCheckedChange={(v) => setPostTarget(v ? 'tg_channel' : 'none')} />
+              <Label htmlFor="post-toggle" className="cursor-pointer">
+                post to tg channel: {profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)}
+              </Label>
             </div>
           ) : null}
         </div>

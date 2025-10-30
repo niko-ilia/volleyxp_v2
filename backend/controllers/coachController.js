@@ -102,4 +102,91 @@ module.exports = {
   searchUsers,
 };
 
+// ===== Trainings listing and stats =====
+const Match = require('../models/Match');
+
+async function listCoachTrainings(req, res) {
+  try {
+    const me = req.user;
+    const roles = Array.isArray(me.roles) && me.roles.length ? me.roles : [me.role];
+    const isSuperAdmin = roles.includes('super_admin');
+    const { from, to, page = 1, pageSize = 200 } = req.query;
+    const query = { type: 'training' };
+    if (!isSuperAdmin) {
+      query.$or = [{ coach: me._id }, { creator: me._id }];
+    }
+    if (from) query.startDateTime = { ...(query.startDateTime || {}), $gte: new Date(from) };
+    if (to) query.startDateTime = { ...(query.startDateTime || {}), $lte: new Date(to) };
+    const size = Math.min(Math.max(parseInt(pageSize, 10) || 200, 1), 500);
+    const p = Math.max(parseInt(page, 10) || 1, 1);
+    const total = await Match.countDocuments(query);
+    const items = await Match.find(query)
+      .select('title place startDateTime duration status participants coach')
+      .populate('coach', 'name email')
+      .sort({ startDateTime: 1 })
+      .skip((p - 1) * size)
+      .limit(size)
+      .lean();
+    const withCounts = items.map(it => ({
+      _id: it._id,
+      title: it.title,
+      place: it.place,
+      startDateTime: it.startDateTime,
+      duration: it.duration,
+      status: it.status,
+      coach: it.coach,
+      participantsCount: Array.isArray(it.participants) ? it.participants.length : 0,
+    }));
+    return res.json({ items: withCounts, total, totalPages: Math.max(1, Math.ceil(total / size)), currentPage: p });
+  } catch (e) {
+    console.error('listCoachTrainings error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
+
+async function coachStats(req, res) {
+  try {
+    const me = req.user;
+    const roles = Array.isArray(me.roles) && me.roles.length ? me.roles : [me.role];
+    const isSuperAdmin = roles.includes('super_admin');
+    const { from, to } = req.query;
+    const match = { type: 'training' };
+    if (!isSuperAdmin) match.$or = [{ coach: me._id }, { creator: me._id }];
+    if (from) match.startDateTime = { ...(match.startDateTime || {}), $gte: new Date(from) };
+    if (to) match.startDateTime = { ...(match.startDateTime || {}), $lte: new Date(to) };
+    const pipeline = [
+      { $match: match },
+      { $project: { startDateTime: 1, participantsCount: { $size: { $ifNull: ['$participants', []] } }, participants: 1 } },
+      {
+        $group: {
+          _id: null,
+          totalTrainings: { $sum: 1 },
+          totalParticipants: { $sum: '$participantsCount' },
+          uniquePlayers: { $addToSet: '$participants' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalTrainings: 1,
+          totalParticipants: 1,
+          avgParticipants: { $cond: [{ $gt: ['$totalTrainings', 0] }, { $divide: ['$totalParticipants', '$totalTrainings'] }, 0] },
+          uniquePlayers: { $size: { $reduce: { input: '$uniquePlayers', initialValue: [], in: { $setUnion: ['$$value', { $ifNull: ['$$this', []] }] } } } }
+        }
+      }
+    ];
+    const agg = await Match.aggregate(pipeline);
+    const now = new Date();
+    const upcomingCount = await Match.countDocuments({ ...match, startDateTime: { ...(match.startDateTime || {}), $gte: now } });
+    const stats = agg[0] || { totalTrainings: 0, totalParticipants: 0, avgParticipants: 0, uniquePlayers: 0 };
+    return res.json({ ...stats, upcomingCount });
+  } catch (e) {
+    console.error('coachStats error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
+
+module.exports.listCoachTrainings = listCoachTrainings;
+module.exports.coachStats = coachStats;
+
 

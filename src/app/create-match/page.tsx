@@ -44,6 +44,7 @@ export default function CreateMatchPage() {
   const [isTraining, setIsTraining] = useState(false);
   const [coaches, setCoaches] = useState<Array<{ _id: string; name: string; email: string }>>([]);
   const [coachId, setCoachId] = useState<string | "">("");
+  const [initLoading, setInitLoading] = useState(true);
 
   const timeOptions = useMemo(() => {
     // 07:00..21:00 inclusive by hours => 15 values
@@ -64,42 +65,37 @@ export default function CreateMatchPage() {
     setDate(`${yyyy}-${mm}-${dd}`);
   }, []);
 
-  // Load available coaches for Training creation
+  // Initial load critical data (profile + available coaches) to avoid UI flicker
   useEffect(() => {
     let cancelled = false;
+    setInitLoading(true);
     (async () => {
       try {
-        const res = await authFetchWithRetry('/api/coach/available');
-        if (!res.ok) return;
-        const j = await res.json();
-        const items = Array.isArray(j?.items) ? j.items : [];
-        if (!cancelled) {
+        const [profRes, coachRes] = await Promise.all([
+          authFetchWithRetry('/api/users/profile').catch(() => null),
+          authFetchWithRetry('/api/coach/available').catch(() => null),
+        ]);
+        if (!cancelled && profRes && profRes.ok) {
+          const p = await profRes.json();
+          setProfile(p);
+        }
+        if (!cancelled && coachRes && coachRes.ok) {
+          const j = await coachRes.json();
+          const items = Array.isArray(j?.items) ? j.items : [];
           setCoaches(items);
-          // Default coach: self if coach, otherwise only option if single
           const myId = (user as any)?._id || (user as any)?.id;
           const selfCoach = items.find((c: any) => String(c._id) === String(myId));
           if (selfCoach) setCoachId(String(selfCoach._id));
           else if (items.length === 1) setCoachId(String(items[0]._id));
         }
       } catch {}
+      finally {
+        if (!cancelled) setInitLoading(false);
+      }
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  // Load profile to know if user has linked Telegram channel
-  useEffect(() => {
-    let cancelled = false;
-    async function loadProfile() {
-      try {
-        const res = await authFetchWithRetry('/api/users/profile');
-        if (!res.ok) return;
-        const p = await res.json();
-        if (!cancelled) setProfile(p);
-      } catch {}
-    }
-    loadProfile();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -213,6 +209,10 @@ export default function CreateMatchPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (initLoading) {
+    return <div className="mx-auto w-full max-w-2xl p-6"><div className="text-sm text-muted-foreground">Loading...</div></div>;
   }
 
   return (

@@ -289,6 +289,8 @@ export default function ProfilePage() {
           const d0 = h?.date ? new Date(h.date) : null;
           const baseTs = d0 && !isNaN((d0 as any)) ? d0.getTime() : 0;
           const details = Array.isArray(h?.details) ? h.details : [];
+          // Skip matches without confirmed results (no game details)
+          if (!details.length) continue;
           const sumDelta = details.reduce((acc: number, g: any) => acc + (Number(g?.delta) || 0), 0);
           const matchEndRating = Number(h?.newRating);
           let startRating: number | null = currentRating;
@@ -631,7 +633,7 @@ export default function ProfilePage() {
                 {!gamesSeries.length && gamesLoading ? (
                   <div className="h-40 w-full animate-pulse rounded bg-muted" />
                 ) : !gamesSeries.length ? (
-                  <div className="text-xs text-muted-foreground">No games yet</div>
+                  <div className="text-xs text-muted-foreground">No matches yet</div>
                 ) : (
                   <ChartContainer
                     config={{ rating: { label: "Rating", color: "hsl(var(--chart-1))" } }}

@@ -261,13 +261,7 @@ export default function CoachDashboardPage() {
           <div className="grid gap-6 md:grid-cols-2">
             {/* Left: Allowed list */}
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-medium">Allowed</div>
-                <div className="flex items-center gap-2">
-                  <div className="text-xs text-muted-foreground">{feedback}</div>
-                  <Button onClick={saveAllowed} disabled={saving || !dirty}>{saving ? 'Saving...' : 'Save'}</Button>
-                </div>
-              </div>
+              <div className="mb-2 text-sm font-medium">Allowed</div>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -292,6 +286,10 @@ export default function CoachDashboardPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+              <div className="mt-2 flex justify-between items-center">
+                <div className="text-xs text-muted-foreground">{feedback}</div>
+                <Button onClick={saveAllowed} disabled={saving || !dirty}>{saving ? 'Saving...' : 'Save'}</Button>
               </div>
             </div>
 

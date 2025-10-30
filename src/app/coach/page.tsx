@@ -19,6 +19,7 @@ export default function CoachDashboardPage() {
   const [searching, setSearching] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [justAllowedIds, setJustAllowedIds] = useState<string[]>([]);
   // Calendar & stats
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -105,6 +106,7 @@ export default function CoachDashboardPage() {
     const myId = (user as any)?._id || (user as any)?.id;
     if (String((u as any)._id) === String(myId)) { setFeedback('You cannot allow yourself'); return; }
     setAllowed(prev => { setDirty(true); return [...prev, { _id: (u as any)._id, name: (u as any).name, email: (u as any).emailMasked || '' }]; });
+    setJustAllowedIds(prev => prev.includes((u as any)._id) ? prev : [...prev, (u as any)._id]);
   }
   function removeAllowed(id: string) {
     setAllowed(prev => { setDirty(true); return prev.filter(x => x._id !== id); });
@@ -253,17 +255,25 @@ export default function CoachDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {results.map(r => (
+                  {results.map(r => {
+                    const already = allowed.some(a => a._id === r._id) || justAllowedIds.includes(r._id);
+                    return (
                     <TableRow key={r._id}>
                       <TableCell>
                         <div>{r.name || r.emailMasked}</div>
                         <div className="text-xs text-muted-foreground">{r.emailMasked}</div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="secondary" onClick={() => addAllowed(r)}>Allow</Button>
+                        {already ? (
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled>
+                            Done
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="secondary" onClick={() => addAllowed(r)}>Allow</Button>
+                        )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             </div>

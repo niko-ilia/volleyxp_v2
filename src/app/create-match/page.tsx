@@ -12,7 +12,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+// removed radio group; use switches instead
 import { Switch } from "@/components/ui/switch";
 
 type CourtLite = { _id: string; name: string; address?: string; status?: string };
@@ -216,25 +216,27 @@ export default function CreateMatchPage() {
     <div className="mx-auto w-full max-w-2xl p-6">
       <h1 className="mb-6 text-2xl font-semibold">Create match</h1>
       <form onSubmit={onSubmit} className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Switch id="training-toggle" checked={isTraining} onCheckedChange={(v) => setIsTraining(Boolean(v))} />
-          <Label htmlFor="training-toggle" className="cursor-pointer">Training</Label>
-        </div>
-        {isTraining ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Coach</Label>
-            <Select value={coachId || ""} onValueChange={(v) => setCoachId(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={coaches.length ? "Select coach" : "No coaches available"} />
-              </SelectTrigger>
-              <SelectContent>
-                {coaches.map(c => (
-                  <SelectItem key={c._id} value={c._id}>{c.name || c.email}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="title">Match title</Label>
+            <Input id="title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Morning beach run" />
           </div>
-        ) : null}
+          {isTraining ? (
+            <div className="space-y-2">
+              <Label>Coach</Label>
+              <Select value={coachId || ""} onValueChange={(v) => setCoachId(v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={coaches.length ? "Select coach" : "No coaches available"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {coaches.map(c => (
+                    <SelectItem key={c._id} value={c._id}>{c.name || c.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="title">Match title</Label>
           <Input id="title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Morning beach run" />
@@ -329,21 +331,23 @@ export default function CreateMatchPage() {
           <Textarea id="desc" value={description} onChange={e => setDescription(e.target.value)} rows={4} placeholder="Notes, special rules, etc." />
         </div>
 
-        {(profile?.telegramChannel?.linked) ? (
-          <div className="space-y-2">
-            <Label>Post to</Label>
-            <RadioGroup value={postTarget} onValueChange={(v) => setPostTarget(v as any)} className="grid gap-2">
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="post-none" value="none" />
-                <Label htmlFor="post-none" className="font-normal">Do not post</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="post-tg" value="tg_channel" />
-                <Label htmlFor="post-tg" className="font-normal">Post to Telegram channel ({profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)})</Label>
-              </div>
-            </RadioGroup>
+        {/* Toggles at the bottom */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <Switch id="training-toggle" checked={isTraining} onCheckedChange={(v) => setIsTraining(Boolean(v))} />
+            <Label htmlFor="training-toggle" className="cursor-pointer">Training</Label>
           </div>
-        ) : null}
+          {(profile?.telegramChannel?.linked) ? (
+            <div className="flex items-center gap-3">
+              <Switch id="post-toggle" checked={postTarget === 'tg_channel'} onCheckedChange={(v) => setPostTarget(v ? 'tg_channel' : 'none')} />
+              <Label htmlFor="post-toggle" className="cursor-pointer">
+                Post to Telegram channel ({profile?.telegramChannel?.title || (profile?.telegramChannel?.username ? '@' + profile?.telegramChannel?.username : profile?.telegramChannel?.id)})
+              </Label>
+            </div>
+          ) : null}
+        </div>
+
+        {/* removed radio post section - replaced by toggle above */}
 
         <div className="min-h-[20px] text-sm text-red-600">{error}</div>
 

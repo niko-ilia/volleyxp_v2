@@ -663,10 +663,12 @@ export default function ProfilePage() {
                               const p = item?.payload as any;
                               const dv = Number(p?.delta || 0);
                               const color = dv > 0 ? 'text-green-600' : dv < 0 ? 'text-red-600' : 'text-muted-foreground';
+                              const rating = Number(p?.rating);
+                              const signed = dv > 0 ? `+${dv.toFixed(2)}` : dv.toFixed(2);
                               return (
                                 <div className="flex flex-col gap-0.5">
-                                  <div className="text-muted-foreground">{p?.dateStr}</div>
-                                  <div className={`font-mono ${color}`}>Δ {dv.toFixed(2)}</div>
+                                  <div className="font-mono">Rating {Number.isFinite(rating) ? rating.toFixed(2) : '—'}</div>
+                                  <div className={`font-mono ${color}`}>Δ {signed}</div>
                                 </div>
                               );
                             }}

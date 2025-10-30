@@ -526,8 +526,8 @@ const getProfileOverview = async (req, res) => {
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '5', 10) || 5, 1), 50);
     const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
 
-    // Fetch only matches where user is creator or participant
-    const query = { $or: [{ creator: meId }, { participants: meId }] };
+    // Fetch only matches where user is creator or participant, EXCLUDING trainings
+    const query = { $or: [{ creator: meId }, { participants: meId }], type: { $ne: 'training' } };
     const total = await Match.countDocuments(query);
     const items = await Match.find(query)
       .select('title place level startDateTime status')

@@ -448,7 +448,7 @@ export default function MatchPage() {
   const isUserParticipant = !!user && Array.isArray(match.participants) && match.participants.some(p => p._id === (user._id || (user as any).id));
   const isCreator = !!user && match.creator?._id && (user._id || (user as any).id) === match.creator._id;
   const isResultConfirmed = !!result?.isConfirmed;
-  const canAddResults = participantsCount >= 4 && isUserParticipant && !isResultConfirmed && match.status !== 'cancelled';
+  const canAddResults = participantsCount >= 4 && isUserParticipant && !isResultConfirmed && match.status !== 'cancelled' && match.type !== 'training';
   const start = new Date(match.startDateTime);
   const end = new Date(start.getTime() + match.duration * 60000);
   const now = new Date();
@@ -482,6 +482,12 @@ export default function MatchPage() {
           <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Date</div><div className="font-semibold">{dateStr}</div></div>
           <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Start time</div><div className="font-semibold">{timeStr}</div></div>
           <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Level</div><div className="font-semibold">{match.level}</div></div>
+          {match.type === 'training' && (
+            <div className="flex items-baseline gap-4">
+              <div className="w-28 text-muted-foreground">Type</div>
+              <div className="font-semibold">Training with {(typeof match.coach === 'object' && match.coach) ? ((match.coach as any).name || (match.coach as any).email) : 'Coach'}</div>
+            </div>
+          )}
           <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Visibility</div><div className="font-semibold">{match.isPrivate ? "Private" : "Public"}</div></div>
           <div className="flex items-baseline gap-4"><div className="w-28 text-muted-foreground">Creator</div><div className="font-semibold">{match.creator?.name || match.creator?.email}</div></div>
           {match.status === 'cancelled' && (

@@ -45,6 +45,11 @@ export default function ProfilePage() {
   const [matchesTotal, setMatchesTotal] = React.useState(0);
   const [gamesSeries, setGamesSeries] = React.useState<Array<{ label: string; delta: number; rating: number; dateStr: string }>>([]);
   const [gamesLoading, setGamesLoading] = React.useState<boolean>(false);
+  // Trainings state
+  const [trainings, setTrainings] = React.useState<any[] | null>(null);
+  const [trainingsError, setTrainingsError] = React.useState<string | null>(null);
+  const [trPage, setTrPage] = React.useState(1);
+  const [trTotalPages, setTrTotalPages] = React.useState(1);
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
   // Telegram linking UI state
@@ -316,6 +321,27 @@ export default function ProfilePage() {
     if (user) loadGames();
     return () => { cancelled = true; };
   }, [user]);
+
+  // Load trainings list (creator/participant/coach)
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadTrainings(p: number) {
+      try {
+        setTrainingsError(null);
+        const res = await authFetchWithRetry(`/api/users/profile-trainings?page=${p}&pageSize=${PAGE_SIZE}`);
+        if (!res.ok) throw new Error(`Failed to load trainings: ${res.status}`);
+        const body = await res.json();
+        if (cancelled) return;
+        const items = Array.isArray(body?.items) ? body.items : [];
+        setTrainings(items);
+        setTrTotalPages(Number(body?.totalPages || 1));
+      } catch (e: any) {
+        if (!cancelled) { setTrainingsError(e?.message || 'Failed to load trainings'); setTrainings([]); }
+      }
+    }
+    if (user) loadTrainings(trPage);
+    return () => { cancelled = true; };
+  }, [user, trPage]);
 
   const onSave = React.useCallback(async () => {
     if (!name.trim()) return;
@@ -736,6 +762,50 @@ export default function ProfilePage() {
                   <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Back</Button>
                   <div className="text-xs text-muted-foreground">Page {page} of {matchesTotalPages}</div>
                   <Button variant="outline" size="sm" disabled={page >= matchesTotalPages} onClick={() => setPage((p) => Math.min(matchesTotalPages, p + 1))}>Next</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-8 max-w-xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>My trainings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {trainingsError ? (
+              <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">{trainingsError}</div>
+            ) : !trainings ? (
+              <div className="space-y-2">
+                <div className="h-9 w-full animate-pulse rounded bg-muted" />
+                <div className="h-9 w-full animate-pulse rounded bg-muted" />
+              </div>
+            ) : trainings.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No trainings yet</div>
+            ) : (
+              <div className="space-y-3">
+                {trainings.map((t) => {
+                  const dt = new Date(t.startDateTime);
+                  const dateStr = dt.toLocaleDateString("en-US");
+                  const timeStr = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  const coachName = (t.coach && typeof t.coach === 'object') ? (t.coach.name || t.coach.email) : undefined;
+                  return (
+                    <Link key={t._id} href={`/match/${t._id}`} className="block">
+                      <div className="flex items-center justify-between rounded border p-3 hover:bg-muted/50">
+                        <div>
+                          <div className="font-medium">{t.place || t.title}</div>
+                          <div className="text-xs text-muted-foreground">{dateStr} • {timeStr} • Training{coachName ? ` with ${coachName}` : ''}</div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-2">
+                  <Button variant="outline" size="sm" disabled={trPage === 1} onClick={() => setTrPage((p) => Math.max(1, p - 1))}>Back</Button>
+                  <div className="text-xs text-muted-foreground">Page {trPage} of {trTotalPages}</div>
+                  <Button variant="outline" size="sm" disabled={trPage >= trTotalPages} onClick={() => setTrPage((p) => Math.min(trTotalPages, p + 1))}>Next</Button>
                 </div>
               </div>
             )}

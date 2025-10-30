@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile, getMatchHistory, getUserByEmail, getPublicProfile, getMatchHistoryByUserId, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel, getProfileStatsAggregates, getProfileOverview } = require('../controllers/userController');
+const { getProfile, updateProfile, getMatchHistory, getUserByEmail, getPublicProfile, getMatchHistoryByUserId, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel, getProfileStatsAggregates, getProfileOverview, getProfileTrainings } = require('../controllers/userController');
 const auth = require('../middleware/auth');
 
 
@@ -22,6 +22,8 @@ router.get('/profile-stats', getProfileStatsAggregates);
 
 // GET /api/users/profile-overview - профиль+сводка+пагинированные матчи пользователя
 router.get('/profile-overview', getProfileOverview);
+// Trainings list (creator/participant/coach)
+router.get('/profile-trainings', getProfileTrainings);
 
 // PUT /api/users/profile - обновить профиль пользователя
 router.put('/profile', updateProfile);

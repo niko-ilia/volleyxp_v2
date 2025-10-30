@@ -580,4 +580,27 @@ const getProfileOverview = async (req, res) => {
   }
 };
 
-module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel, getProfileStatsAggregates, getProfileOverview };
+// GET /api/users/profile-trainings?page=1&pageSize=5
+// Returns trainings where the user is creator, participant, or coach
+const getProfileTrainings = async (req, res) => {
+  try {
+    const meId = req.user?._id;
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '5', 10) || 5, 1), 50);
+    const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+    const query = { type: 'training', $or: [{ creator: meId }, { participants: meId }, { coach: meId }] };
+    const total = await Match.countDocuments(query);
+    const items = await Match.find(query)
+      .select('title place level startDateTime status coach')
+      .populate('coach', 'name email')
+      .sort({ startDateTime: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+    return res.json({ items, total, totalPages: Math.max(1, Math.ceil(total / pageSize)), currentPage: page });
+  } catch (e) {
+    console.error('getProfileTrainings error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { updateProfile, getProfile, getPublicProfile, getMatchHistory, getMatchHistoryByUserId, getUserByEmail, addTelegramChannel, verifyTelegramChannel, deleteTelegramChannel, postToTelegramChannel, getProfileStatsAggregates, getProfileOverview, getProfileTrainings };

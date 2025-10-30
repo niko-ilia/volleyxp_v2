@@ -25,6 +25,7 @@ export default function CoachDashboardPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [trainings, setTrainings] = useState<any[]>([]);
+  const [upcoming, setUpcoming] = useState<any[]>([]);
   const [stats, setStats] = useState<{ totalTrainings: number; uniquePlayers: number; avgParticipants: number; upcomingCount: number } | null>(null);
 
   useEffect(() => {
@@ -65,6 +66,22 @@ export default function CoachDashboardPage() {
       } catch {}
     })();
   }, [year, month]);
+
+  // Upcoming sessions not tied to selected month
+  useEffect(() => {
+    (async () => {
+      try {
+        const nowIso = new Date().toISOString();
+        const res = await authFetchWithRetry(`/api/coach/trainings?from=${encodeURIComponent(nowIso)}&pageSize=200`);
+        if (res.ok) {
+          const j = await res.json();
+          setUpcoming(Array.isArray(j?.items) ? j.items : []);
+        } else {
+          setUpcoming([]);
+        }
+      } catch { setUpcoming([]); }
+    })();
+  }, []);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
@@ -177,7 +194,7 @@ export default function CoachDashboardPage() {
             <CardTitle>Upcoming sessions</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {trainings.filter(t => new Date(t.startDateTime) >= new Date()).slice(0, 8).map(t => {
+            {upcoming.slice(0, 8).map(t => {
               const d = new Date(t.startDateTime);
               const tm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               const ds = d.toLocaleDateString();
@@ -188,6 +205,7 @@ export default function CoachDashboardPage() {
                 </Link>
               );
             })}
+            {upcoming.length === 0 ? <div className="text-xs text-muted-foreground">No upcoming sessions</div> : null}
           </CardContent>
         </Card>
         <Card>

@@ -68,6 +68,16 @@ export default function Header() {
                       </DropdownMenuItem>
                     ) : null;
                   })()}
+                  {(() => {
+                    const roles = Array.isArray((user as any).roles) && (user as any).roles.length
+                      ? (user as any).roles
+                      : ((user as any).role ? [(user as any).role] : []);
+                    return roles.includes('coach') ? (
+                      <DropdownMenuItem asChild>
+                        <Link href="/coach">Coach Dashboard</Link>
+                      </DropdownMenuItem>
+                    ) : null;
+                  })()}
                   <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -56,7 +56,12 @@ const getAllUsers = async (req, res) => {
     // Обеспечиваем наличие roles и согласованность role для выдачи в список
     const normalizedUsers = users.map(u => {
       const roles = Array.isArray(u.roles) && u.roles.length > 0 ? u.roles : [u.role || 'player'];
-      const role = roles.includes('super_admin') ? 'super_admin' : (roles.includes('court_admin') ? 'court_admin' : 'player');
+      // Приоритет основной роли: super_admin > court_admin > coach > admin_view > player
+      let role = 'player';
+      if (roles.includes('super_admin')) role = 'super_admin';
+      else if (roles.includes('court_admin')) role = 'court_admin';
+      else if (roles.includes('coach')) role = 'coach';
+      else if (roles.includes('admin_view')) role = 'admin_view';
       return { ...u, roles, role };
     });
 
@@ -79,7 +84,7 @@ const getAllUsers = async (req, res) => {
 const updateUserRole = async (req, res) => {
   try {
     const { role, roles, permissions, managedCourts, notes } = req.body;
-    const allowed = ['player', 'court_admin', 'admin_view', 'super_admin'];
+    const allowed = ['player', 'coach', 'court_admin', 'admin_view', 'super_admin'];
     if (roles) {
       if (!Array.isArray(roles) || roles.length === 0 || !roles.every(r => allowed.includes(r))) {
         return res.status(400).json({ error: 'Invalid roles', code: 'INVALID_ROLES' });

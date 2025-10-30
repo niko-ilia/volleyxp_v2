@@ -86,6 +86,7 @@ export default function UsersPage() {
             <SelectItem value="all">Все роли</SelectItem>
             <SelectItem value="player">Игрок</SelectItem>
             <SelectItem value="court_admin">Админ корта</SelectItem>
+            <SelectItem value="coach">Тренер</SelectItem>
             <SelectItem value="admin_view">Admin View</SelectItem>
             <SelectItem value="super_admin">Супер‑админ</SelectItem>
           </SelectContent>
@@ -317,9 +318,9 @@ function EditModal({ user, onClose, canMutate }: { user: UserItem | null; onClos
           <div className="space-y-2">
             <Label>Роли</Label>
             <div className="flex flex-wrap gap-2">
-              {['player','court_admin','admin_view','super_admin'].map(r => (
+              {['player','coach','court_admin','admin_view','super_admin'].map(r => (
                 <Button key={r} type="button" variant={roles.includes(r) ? 'default' : 'outline'} size="sm" disabled={ro} onClick={() => toggleRole(r)}>
-                  {r === 'player' ? 'Игрок' : r === 'court_admin' ? 'Админ корта' : r === 'admin_view' ? 'Админ (только просмотр)' : 'Супер‑админ'}
+                  {r === 'player' ? 'Игрок' : r === 'coach' ? 'Тренер' : r === 'court_admin' ? 'Админ корта' : r === 'admin_view' ? 'Админ (только просмотр)' : 'Супер‑админ'}
                 </Button>
               ))}
             </div>

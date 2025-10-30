@@ -87,14 +87,14 @@ const userSchema = new mongoose.Schema({
   // Административные поля
   role: { 
     type: String, 
-    enum: ['player', 'court_admin', 'admin_view', 'super_admin'], 
+    enum: ['player', 'coach', 'court_admin', 'admin_view', 'super_admin'], 
     default: 'player' 
   },
   // Новый формат ролей (множественные роли) — используется совместно со старым полем role
   roles: {
     type: [String],
     default: undefined, // не заполняем автоматически, чтобы не ломать существующие документы; миграция проставит
-    enum: ['player', 'court_admin', 'admin_view', 'super_admin']
+    enum: ['player', 'coach', 'court_admin', 'admin_view', 'super_admin']
   },
   permissions: [String], // Дополнительные разрешения
   managedCourts: [String], // Для court_admin - какие корты управляет
@@ -115,8 +115,11 @@ const userSchema = new mongoose.Schema({
 // Определяем приоритет основой роли при наличии нескольких
 function determinePrimaryRole(roles) {
   if (!Array.isArray(roles) || roles.length === 0) return 'player';
+  // Приоритет: super_admin > court_admin > coach > admin_view > player
   if (roles.includes('super_admin')) return 'super_admin';
   if (roles.includes('court_admin')) return 'court_admin';
+  if (roles.includes('coach')) return 'coach';
+  if (roles.includes('admin_view')) return 'admin_view';
   return 'player';
 }
 

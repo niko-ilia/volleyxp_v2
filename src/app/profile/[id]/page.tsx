@@ -7,6 +7,8 @@ import { authFetchWithRetry } from "@/lib/auth/api";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 
 type PublicProfile = { id: string; name: string; rating?: number; createdAt?: string; emailMasked?: string };
 
@@ -22,6 +24,8 @@ export default function PublicProfilePage() {
   const PAGE_SIZE = 5;
   const [statsByMatchId, setStatsByMatchId] = React.useState<Record<string, { wins: number; losses: number }>>({});
   const [summary, setSummary] = React.useState<{ total: number; wins: number; losses: number; winPct: number }>({ total: 0, wins: 0, losses: 0, winPct: 0 });
+  const [series, setSeries] = React.useState<Array<{ label: string; delta: number; rating: number; dateStr: string }>>([]);
+  const [seriesLoading, setSeriesLoading] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -56,6 +60,7 @@ export default function PublicProfilePage() {
       if (!userId) return;
       setMatchesError(null);
       try {
+        setSeriesLoading(true);
         const res = await authFetchWithRetry(`/api/users/${userId}/match-history`);
         if (!res.ok) throw new Error(`Failed to load history: ${res.status}`);
         const body = await res.json();
@@ -89,13 +94,48 @@ export default function PublicProfilePage() {
         setStatsByMatchId(map);
         const gamesTotal = sumWins + sumLosses;
         setSummary({ total, wins: sumWins, losses: sumLosses, winPct: gamesTotal ? sumWins / gamesTotal : 0 });
+
+        // Build rating series per match (last 10), only confirmed results (has details)
+        const points: Array<{ ts: number; label: string; delta: number; rating: number; dateStr: string }> = [];
+        let currentRating: number | null = null;
+        for (const h of items.slice().sort((a: any, b: any) => new Date(a?.date||0).getTime() - new Date(b?.date||0).getTime())) {
+          const d0 = h?.date ? new Date(h.date) : null;
+          const ts = d0 && !isNaN((d0 as any)) ? d0.getTime() : 0;
+          const details = Array.isArray(h?.details) ? h.details : [];
+          if (!details.length) continue; // skip not confirmed
+          const sumDelta = details.reduce((acc: number, g: any) => acc + (Number(g?.delta) || 0), 0);
+          const matchEndRating = Number(h?.newRating);
+          let startRating: number | null = currentRating;
+          if (startRating === null || !Number.isFinite(startRating as any)) {
+            startRating = Number.isFinite(matchEndRating) ? matchEndRating - sumDelta : 0;
+          }
+          const endRating: number = Number.isFinite(matchEndRating) ? matchEndRating : Number(startRating) + sumDelta;
+          const dateStr = d0 ? d0.toLocaleDateString('en-US') : '';
+          points.push({ ts, label: dateStr, delta: sumDelta, rating: endRating, dateStr });
+          currentRating = endRating;
+        }
+        points.sort((a,b)=>a.ts-b.ts);
+        const last10 = points.slice(Math.max(0, points.length - 10));
+        setSeries(last10.map(p => ({ label: p.label, delta: p.delta, rating: Number(p.rating.toFixed ? p.rating.toFixed(2) : p.rating), dateStr: p.dateStr })));
       } catch (e: any) {
         if (!cancelled) setMatchesError(e?.message || 'Failed to load history');
+      } finally {
+        if (!cancelled) setSeriesLoading(false);
       }
     }
     loadHistory();
     return () => { cancelled = true; };
   }, [userId]);
+
+  const chartDomain = React.useMemo(() => {
+    const ratings = series.map(s => Number(s?.rating) || 0);
+    if (!ratings.length) return [0, 1] as [number, number];
+    const min = Math.min(...ratings);
+    const max = Math.max(...ratings);
+    const yMin = Math.max(0, min - 1);
+    const yMax = max + 0.5;
+    return [yMin, yMax] as [number, number];
+  }, [series]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -166,6 +206,57 @@ export default function PublicProfilePage() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Rating history chart (public) */}
+      <div className="mt-8 max-w-xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Rating — last 10 matches</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!series.length && seriesLoading ? (
+              <div className="h-40 w-full animate-pulse rounded bg-muted" />
+            ) : !series.length ? (
+              <div className="text-xs text-muted-foreground">No matches yet</div>
+            ) : (
+              <ChartContainer config={{ rating: { label: "Rating", color: "hsl(var(--chart-1))" } }} className="w-full">
+                <AreaChart data={series} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="ratingFillPublic" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="label" hide />
+                  <YAxis tickLine={false} axisLine={false} width={40} domain={chartDomain} tickFormatter={(v: number) => (Number.isFinite(v) ? v.toFixed(2) : String(v))} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        hideIndicator
+                        formatter={(value: any, name: any, item: any) => {
+                          const p = item?.payload as any;
+                          const dv = Number(p?.delta || 0);
+                          const color = dv > 0 ? 'text-green-600' : dv < 0 ? 'text-red-600' : 'text-muted-foreground';
+                          const rating = Number(p?.rating);
+                          const signed = dv > 0 ? `+${dv.toFixed(2)}` : dv.toFixed(2);
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="font-mono">Rating {Number.isFinite(rating) ? rating.toFixed(2) : '—'}</div>
+                              <div className={`font-mono ${color}`}>Δ {signed}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                    }
+                  />
+                  <Area type="monotone" dataKey="rating" stroke="hsl(var(--chart-1))" fill="url(#ratingFillPublic)" strokeWidth={2} dot={{ r: 5 }} activeDot={{ r: 6 }} />
+                </AreaChart>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>

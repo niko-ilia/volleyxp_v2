@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // removed radio group; use switches instead
 import { Switch } from "@/components/ui/switch";
+import ShareDialog from "@/components/share/ShareDialog";
 
 type CourtLite = { _id: string; name: string; address?: string; status?: string };
 
@@ -353,32 +354,7 @@ export default function CreateMatchPage() {
         </div>
       </form>
 
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share match</DialogTitle>
-          </DialogHeader>
-          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap break-all font-mono">
-            {shareText}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              onClick={() => {
-                if (navigator?.clipboard) navigator.clipboard.writeText(shareText);
-              }}
-            >Copy</Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setShareOpen(false);
-                router.push(shareUrl);
-              }}
-            >Open match</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} text={shareText} openHref={shareUrl} />
     </div>
   );
 }

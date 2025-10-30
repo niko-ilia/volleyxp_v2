@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { buildShareMessage } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import ShareDialog from "@/components/share/ShareDialog";
 
 type Match = {
   _id: string;
@@ -625,19 +626,7 @@ export default function MatchPage() {
         </Card>
       )}
 
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share match</DialogTitle>
-          </DialogHeader>
-          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap break-all font-mono">
-            {shareText}
-          </div>
-          <DialogFooter>
-            <Button type="button" onClick={() => { if (navigator?.clipboard) navigator.clipboard.writeText(shareText); }}>Copy</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} text={shareText} />
 
       {/* Add/Confirm Results modal */}
       <Dialog open={resultsOpen} onOpenChange={setResultsOpen}>

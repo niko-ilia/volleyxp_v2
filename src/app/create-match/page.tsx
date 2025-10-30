@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 
 type CourtLite = { _id: string; name: string; address?: string; status?: string };
 
@@ -39,6 +40,9 @@ export default function CreateMatchPage() {
   const [shareUrl, setShareUrl] = useState("");
   const [postTarget, setPostTarget] = useState<"none" | "tg_channel">("none");
   const [profile, setProfile] = useState<any | null>(null);
+  const [isTraining, setIsTraining] = useState(false);
+  const [coaches, setCoaches] = useState<Array<{ _id: string; name: string; email: string }>>([]);
+  const [coachId, setCoachId] = useState<string | "">("");
 
   const timeOptions = useMemo(() => {
     // 07:00..21:00 inclusive by hours => 15 values
@@ -58,6 +62,28 @@ export default function CreateMatchPage() {
     const dd = String(now.getDate()).padStart(2, "0");
     setDate(`${yyyy}-${mm}-${dd}`);
   }, []);
+
+  // Load available coaches for Training creation
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetchWithRetry('/api/coach/available');
+        if (!res.ok) return;
+        const j = await res.json();
+        const items = Array.isArray(j?.items) ? j.items : [];
+        if (!cancelled) {
+          setCoaches(items);
+          // Default coach: self if coach, otherwise only option if single
+          const myId = (user as any)?._id || (user as any)?.id;
+          const selfCoach = items.find((c: any) => String(c._id) === String(myId));
+          if (selfCoach) setCoachId(String(selfCoach._id));
+          else if (items.length === 1) setCoachId(String(items[0]._id));
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Load profile to know if user has linked Telegram channel
   useEffect(() => {
@@ -129,6 +155,10 @@ export default function CreateMatchPage() {
       };
       if (courtId) body.courtId = courtId;
       else if (place.trim()) body.place = place.trim();
+      if (isTraining) {
+        body.type = 'training';
+        if (coachId) body.coachId = coachId;
+      }
 
       const res = await authFetchWithRetry("/api/matches", {
         method: "POST",
@@ -186,6 +216,25 @@ export default function CreateMatchPage() {
     <div className="mx-auto w-full max-w-2xl p-6">
       <h1 className="mb-6 text-2xl font-semibold">Create match</h1>
       <form onSubmit={onSubmit} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Switch id="training-toggle" checked={isTraining} onCheckedChange={(v) => setIsTraining(Boolean(v))} />
+          <Label htmlFor="training-toggle" className="cursor-pointer">Training</Label>
+        </div>
+        {isTraining ? (
+          <div className="space-y-2">
+            <Label>Coach</Label>
+            <Select value={coachId || ""} onValueChange={(v) => setCoachId(v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={coaches.length ? "Select coach" : "No coaches available"} />
+              </SelectTrigger>
+              <SelectContent>
+                {coaches.map(c => (
+                  <SelectItem key={c._id} value={c._id}>{c.name || c.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="title">Match title</Label>
           <Input id="title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Morning beach run" />

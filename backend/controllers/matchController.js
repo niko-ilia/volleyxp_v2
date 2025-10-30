@@ -6,7 +6,7 @@ const Court = require('../models/Court');
 // Создать матч
 const createMatch = async (req, res) => {
   try {
-    const { title, description, place, startDateTime, duration, maxParticipants, level, courtId } = req.body;
+    const { title, description, place, startDateTime, duration, maxParticipants, level, courtId, type, coachId } = req.body;
     // Валидация обязательных полей (place может прийти пустым, если есть courtId)
     if (!title || !startDateTime || !duration || !level || (!place && !courtId)) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Missing required fields' });
@@ -32,6 +32,42 @@ const createMatch = async (req, res) => {
       finalCourtId = court._id;
     }
 
+    // Training validation/authorization
+    let finalType = (type === 'training') ? 'training' : 'match';
+    let finalCoachId = undefined;
+    if (finalType === 'training') {
+      // Determine coach
+      const requesterRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.role];
+      const isSuperAdmin = requesterRoles.includes('super_admin');
+      const isCoach = requesterRoles.includes('coach');
+      if (isCoach && (!coachId || String(coachId) === req.user._id.toString())) {
+        finalCoachId = req.user._id;
+      } else if (coachId) {
+        const coachUser = await User.findById(coachId);
+        if (!coachUser) {
+          return res.status(400).json({ code: 'COACH_NOT_FOUND' });
+        }
+        const coachRoles = Array.isArray(coachUser.roles) && coachUser.roles.length ? coachUser.roles : [coachUser.role];
+        const isCoachRole = coachRoles.includes('coach');
+        if (!isCoachRole) {
+          return res.status(400).json({ code: 'NOT_A_COACH' });
+        }
+        const allowed = isSuperAdmin || (Array.isArray(coachUser.coachSettings?.allowedCreators) && coachUser.coachSettings.allowedCreators.some(id => id.toString() === req.user._id.toString()));
+        if (!allowed) {
+          return res.status(403).json({ code: 'COACH_TRAINING_NOT_ALLOWED' });
+        }
+        finalCoachId = coachUser._id;
+      } else {
+        return res.status(400).json({ code: 'COACH_REQUIRED' });
+      }
+    }
+
+    const initialParticipants = [];
+    // Creator participates by default unless creator is the coach in a training
+    if (!(finalType === 'training' && finalCoachId && req.user._id.toString() === finalCoachId.toString())) {
+      initialParticipants.push(req.user._id);
+    }
+
     const match = new Match({
       title,
       description,
@@ -42,36 +78,43 @@ const createMatch = async (req, res) => {
       duration,
       maxParticipants: maxParticipants || 6,
       creator: req.user._id,
-      participants: [req.user._id], // Создатель автоматически участвует
-      isPrivate: req.body.isPrivate === true
+      participants: initialParticipants,
+      isPrivate: req.body.isPrivate === true,
+      type: finalType,
+      coach: finalCoachId
     });
 
     await match.save();
 
-    // Фиксируем join snapshot для создателя
-    match.joinSnapshots = match.joinSnapshots || [];
-    match.joinSnapshots.push({ userId: req.user._id, rating: req.user.rating });
-    await match.save();
+    // Фиксируем join snapshot только для реально добавленных участников
+    if (initialParticipants.length > 0) {
+      match.joinSnapshots = match.joinSnapshots || [];
+      match.joinSnapshots.push({ userId: req.user._id, rating: req.user.rating });
+      await match.save();
+    }
 
-    // Добавляем запись в ratingHistory для всех участников (на старте только создатель)
-    const user = await User.findById(req.user._id);
-    if (user) {
-      user.ratingHistory.push({
-        date: new Date(),
-        delta: 0,
-        newRating: user.rating,
-        matchId: match._id,
-        comment: 'Match without result',
-        details: [],
-        joinRating: user.rating // сохраняем рейтинг на момент входа
-      });
-      user.markModified('ratingHistory');
-      await user.save();
+    // Добавляем запись в ratingHistory только если создатель является участником
+    if (initialParticipants.length > 0) {
+      const user = await User.findById(req.user._id);
+      if (user) {
+        user.ratingHistory.push({
+          date: new Date(),
+          delta: 0,
+          newRating: user.rating,
+          matchId: match._id,
+          comment: 'Match without result',
+          details: [],
+          joinRating: user.rating
+        });
+        user.markModified('ratingHistory');
+        await user.save();
+      }
     }
     
     // Заполняем данные создателя
     await match.populate('creator', 'name email');
     await match.populate('participants', 'name email');
+    await match.populate('coach', 'name email');
     await match.populate('courtId', 'name address status');
 
     res.status(201).json(match);

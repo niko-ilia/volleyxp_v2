@@ -21,6 +21,9 @@ const matchSchema = new mongoose.Schema({
   isPrivate: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   status: { type: String, enum: ['upcoming', 'finished', 'cancelled'], default: 'upcoming' },
+  // Тип события: обычный матч или тренировка с тренером
+  type: { type: String, enum: ['match', 'training'], default: 'match' },
+  coach: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // если type = training
   // Новое поле: снимки рейтинга на момент входа
   joinSnapshots: [joinSnapshotSchema]
 });
@@ -28,6 +31,7 @@ const matchSchema = new mongoose.Schema({
 // Индексы
 matchSchema.index({ startDateTime: 1 });
 matchSchema.index({ isPrivate: 1 });
+matchSchema.index({ type: 1 });
 matchSchema.index({ participants: 1 });
 matchSchema.index({ creator: 1 });
 matchSchema.index({ status: 1 });

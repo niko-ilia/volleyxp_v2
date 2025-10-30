@@ -109,6 +109,10 @@ const userSchema = new mongoose.Schema({
       hideFinishedNoResult: { type: Boolean, default: true },
       hideCancelled: { type: Boolean, default: true }
     }
+  },
+  // Настройки тренера (для пользователей с ролью coach)
+  coachSettings: {
+    allowedCreators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // пользователи, которым разрешено создавать тренировки с этим тренером
   }
 });
 

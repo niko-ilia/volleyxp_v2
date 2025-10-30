@@ -34,6 +34,11 @@ const createResult = async (req, res) => {
       return res.status(400).json({ message: 'Result already exists for this match' });
     }
 
+    // Запрещаем результаты для тренировок
+    if (match.type === 'training') {
+      return res.status(400).json({ code: 'TRAINING_NO_RESULTS', message: 'Results are not allowed for training sessions' });
+    }
+
     const isParticipant = match.participants.some(
       p => p.toString() === req.user._id.toString()
     );
@@ -107,6 +112,9 @@ const updateResult = async (req, res) => {
     if (!match) {
       return res.status(404).json({ message: 'Match not found' });
     }
+    if (match.type === 'training') {
+      return res.status(400).json({ code: 'TRAINING_NO_RESULTS', message: 'Results are not allowed for training sessions' });
+    }
     const isParticipant = match.participants.some(
       p => p.toString() === req.user._id.toString()
     );
@@ -152,6 +160,7 @@ const confirmResult = async (req, res) => {
     if (result.isConfirmed) return res.status(400).json({ code: 'RESULT_ALREADY_CONFIRMED', message: 'Result already confirmed' });
     const match = result.match;
     if (!match) return res.status(404).json({ message: 'Match not found' });
+    if (match.type === 'training') return res.status(400).json({ code: 'TRAINING_NO_RESULTS', message: 'Results are not allowed for training sessions' });
 
     const isParticipant = match.participants.some(p => p.toString() === req.user._id.toString());
     if (!isParticipant) return res.status(403).json({ message: 'Only participants can confirm the result' });
@@ -229,6 +238,9 @@ const deleteResult = async (req, res) => {
     const match = result.match;
     if (!match) {
       return res.status(404).json({ message: 'Match not found' });
+    }
+    if (match.type === 'training') {
+      return res.status(400).json({ code: 'TRAINING_NO_RESULTS', message: 'Results are not allowed for training sessions' });
     }
     const isParticipant = match.participants.some(
       p => p.toString() === req.user._id.toString()

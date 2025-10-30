@@ -67,6 +67,7 @@ app.use('/api/matches', require('./routes/matches'));
 app.use('/api/results', require('./routes/results'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/telegram', require('./routes/telegram'));
+app.use('/api/coach', require('./routes/coach'));
 // ВАЖНО: более специфичный префикс должен идти раньше, иначе попадём в общий /api/admin
 app.use('/api/admin/courts', require('./routes/courts'));
 app.use('/api/admin', require('./routes/admin'));

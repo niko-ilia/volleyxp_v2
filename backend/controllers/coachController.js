@@ -71,7 +71,20 @@ const updateAllowedCreators = async (req, res) => {
   }
 };
 
-// Поиск пользователей по email/имени (для добавления в allowlist)
+// Helper: mask email for privacy in coach search
+function maskEmailForPublic(email) {
+  try {
+    if (!email || typeof email !== 'string') return '';
+    const [name, domain] = email.split('@');
+    if (!domain) return email;
+    const visible = name.length <= 2 ? name[0] : name.slice(0, 2);
+    return visible + '***@' + domain;
+  } catch (_) {
+    return '';
+  }
+}
+
+// Поиск пользователей по email/имени (для добавления в allowlist) — не раскрывает полный email
 const searchUsers = async (req, res) => {
   try {
     const me = req.user;
@@ -88,7 +101,8 @@ const searchUsers = async (req, res) => {
         { name: { $regex: regex } }
       ]
     }).select('name email').limit(20);
-    res.json({ items: users });
+    const items = users.map(u => ({ _id: u._id, name: u.name, emailMasked: maskEmailForPublic(u.email) }));
+    res.json({ items });
   } catch (e) {
     console.error('searchUsers error:', e);
     res.status(500).json({ code: 'SERVER_ERROR' });

@@ -14,8 +14,11 @@ export default function CoachDashboardPage() {
   const coachName = useMemo(() => user?.name || user?.email || "Coach", [user]);
   const [allowed, setAllowed] = useState<Array<{ _id: string; name: string; email: string }>>([]);
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<Array<{ _id: string; name: string; email: string }>>([]);
+  const [results, setResults] = useState<Array<{ _id: string; name: string; emailMasked?: string }>>([]);
   const [saving, setSaving] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
   // Calendar & stats
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -77,19 +80,34 @@ export default function CoachDashboardPage() {
   }
 
   async function searchUsers() {
+    if (search.trim().length < 2) { setResults([]); return; }
+    setSearching(true);
     try {
       const r = await authFetchWithRetry(`/api/coach/search-users?q=${encodeURIComponent(search)}`);
       if (!r.ok) return;
       const j = await r.json();
       setResults(Array.isArray(j?.items) ? j.items : []);
-    } catch {}
+    } finally { setSearching(false); }
   }
 
-  function addAllowed(u: { _id: string; name: string; email: string }) {
-    setAllowed(prev => prev.find(x => x._id === u._id) ? prev : [...prev, u]);
+  // Debounce search
+  useEffect(() => {
+    if (search.trim().length < 2) { setResults([]); return; }
+    const id = setTimeout(() => { void searchUsers(); }, 350);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  function addAllowed(u: { _id: string; name: string; emailMasked?: string }) {
+    setFeedback(null);
+    if (allowed.find(x => x._id === (u as any)._id)) { setFeedback('Already allowed'); return; }
+    // prevent adding self
+    const myId = (user as any)?._id || (user as any)?.id;
+    if (String((u as any)._id) === String(myId)) { setFeedback('You cannot allow yourself'); return; }
+    setAllowed(prev => { setDirty(true); return [...prev, { _id: (u as any)._id, name: (u as any).name, email: (u as any).emailMasked || '' }]; });
   }
   function removeAllowed(id: string) {
-    setAllowed(prev => prev.filter(x => x._id !== id));
+    setAllowed(prev => { setDirty(true); return prev.filter(x => x._id !== id); });
   }
   async function saveAllowed() {
     setSaving(true);
@@ -98,6 +116,8 @@ export default function CoachDashboardPage() {
         method: 'PUT',
         body: JSON.stringify({ allowedCreatorIds: allowed.map(a => a._id) })
       });
+      setDirty(false);
+      setFeedback('Saved'); setTimeout(() => setFeedback(null), 1500);
     } finally {
       setSaving(false);
     }
@@ -218,11 +238,12 @@ export default function CoachDashboardPage() {
           <CardTitle>Allowed creators for Training</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input placeholder="Search by email or name" value={search} onChange={e => setSearch(e.target.value)} />
-            <Button type="button" onClick={searchUsers}>Search</Button>
+          <div className="flex gap-2 items-center">
+            <label htmlFor="coach-search" className="sr-only">Search users</label>
+            <Input id="coach-search" placeholder="Search by email or name" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchUsers(); } if (e.key === 'Escape') { setSearch(''); setResults([]);} }} />
+            <Button type="button" onClick={searchUsers} disabled={searching || search.trim().length < 2}>{searching ? 'Searching…' : 'Search'}</Button>
           </div>
-          {results.length > 0 && (
+          {results.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -235,8 +256,8 @@ export default function CoachDashboardPage() {
                   {results.map(r => (
                     <TableRow key={r._id}>
                       <TableCell>
-                        <div>{r.name || r.email}</div>
-                        <div className="text-xs text-muted-foreground">{r.email}</div>
+                        <div>{r.name || r.emailMasked}</div>
+                        <div className="text-xs text-muted-foreground">{r.emailMasked}</div>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="secondary" onClick={() => addAllowed(r)}>Allow</Button>
@@ -246,7 +267,7 @@ export default function CoachDashboardPage() {
                 </TableBody>
               </Table>
             </div>
-          )}
+          ) : (search.trim().length >= 2 && !searching ? <div className="text-xs text-muted-foreground">No results</div> : null)}
 
           <div className="rounded-md border">
             <Table>
@@ -257,7 +278,9 @@ export default function CoachDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allowed.map(a => (
+                {allowed.length === 0 ? (
+                  <TableRow><TableCell className="text-xs text-muted-foreground" colSpan={2}>No allowed users</TableCell></TableRow>
+                ) : allowed.map(a => (
                   <TableRow key={a._id}>
                     <TableCell>
                       <div>{a.name || a.email}</div>
@@ -271,8 +294,9 @@ export default function CoachDashboardPage() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex justify-end">
-            <Button onClick={saveAllowed} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+          <div className="flex justify-between items-center">
+            <div className="text-xs text-muted-foreground">{feedback}</div>
+            <Button onClick={saveAllowed} disabled={saving || !dirty}>{saving ? 'Saving...' : 'Save'}</Button>
           </div>
         </CardContent>
       </Card>

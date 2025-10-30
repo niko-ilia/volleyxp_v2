@@ -627,60 +627,60 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Rating — last 10 games */}
-              <div className="mt-4">
-                <div className="text-left text-sm font-medium mb-2">Rating — last 10 matches</div>
-                {!gamesSeries.length && gamesLoading ? (
-                  <div className="h-40 w-full animate-pulse rounded bg-muted" />
-                ) : !gamesSeries.length ? (
-                  <div className="text-xs text-muted-foreground">No matches yet</div>
-                ) : (
-                  <ChartContainer
-                    config={{ rating: { label: "Rating", color: "hsl(var(--chart-1))" } }}
-                    className="w-full"
-                  >
-                    <AreaChart data={gamesSeries} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-                      <defs>
-                        <linearGradient id="ratingFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="label" hide />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={40}
-                        domain={chartDomain}
-                        tickFormatter={(v: number) => (Number.isFinite(v) ? v.toFixed(2) : String(v))}
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            hideIndicator
-                            formatter={(value: any, name: any, item: any) => {
-                              const p = item?.payload as any;
-                              const dv = Number(p?.delta || 0);
-                              const color = dv > 0 ? 'text-green-600' : dv < 0 ? 'text-red-600' : 'text-muted-foreground';
-                              const rating = Number(p?.rating);
-                              const signed = dv > 0 ? `+${dv.toFixed(2)}` : dv.toFixed(2);
-                              return (
-                                <div className="flex flex-col gap-0.5">
-                                  <div className="font-mono">Rating {Number.isFinite(rating) ? rating.toFixed(2) : '—'}</div>
-                                  <div className={`font-mono ${color}`}>Δ {signed}</div>
-                                </div>
-                              );
-                            }}
-                          />
-                        }
-                      />
-                      <Area type="monotone" dataKey="rating" stroke="hsl(var(--chart-1))" fill="url(#ratingFill)" strokeWidth={2} dot={{ r: 5 }} activeDot={{ r: 6 }} />
-                    </AreaChart>
-                  </ChartContainer>
-                )}
-              </div>
+              
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Rating history chart (own profile) */}
+      <div className="mt-8 max-w-xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Rating — last 10 matches</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!gamesSeries.length && gamesLoading ? (
+              <div className="h-40 w-full animate-pulse rounded bg-muted" />
+            ) : !gamesSeries.length ? (
+              <div className="text-xs text-muted-foreground">No matches yet</div>
+            ) : (
+              <ChartContainer config={{ rating: { label: "Rating", color: "hsl(var(--chart-1))" } }} className="w-full">
+                <AreaChart data={gamesSeries} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="ratingFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="label" hide />
+                  <YAxis tickLine={false} axisLine={false} width={40} domain={chartDomain} tickFormatter={(v: number) => (Number.isFinite(v) ? v.toFixed(2) : String(v))} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        className="text-left"
+                        hideIndicator
+                        formatter={(value: any, name: any, item: any) => {
+                          const p = item?.payload as any;
+                          const dv = Number(p?.delta || 0);
+                          const color = dv > 0 ? 'text-green-600' : dv < 0 ? 'text-red-600' : 'text-muted-foreground';
+                          const rating = Number(p?.rating);
+                          const signed = dv > 0 ? `+${dv.toFixed(2)}` : dv.toFixed(2);
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="font-mono">Rating {Number.isFinite(rating) ? rating.toFixed(2) : '—'}</div>
+                              <div className={`font-mono ${color}`}>Δ {signed}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                    }
+                  />
+                  <Area type="monotone" dataKey="rating" stroke="hsl(var(--chart-1))" fill="url(#ratingFill)" strokeWidth={2} dot={{ r: 5 }} activeDot={{ r: 6 }} />
+                </AreaChart>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>

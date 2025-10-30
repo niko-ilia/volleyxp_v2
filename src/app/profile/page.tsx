@@ -360,6 +360,16 @@ export default function ProfilePage() {
     }
   }, [profile?.createdAt]);
 
+  const chartDomain = React.useMemo(() => {
+    const ratings = gamesSeries.map((g) => Number(g?.rating) || 0);
+    if (!ratings.length) return [0, 1] as [number, number];
+    const min = Math.min(...ratings);
+    const max = Math.max(...ratings);
+    const yMin = Math.max(0, min - 1);
+    const yMax = max + 0.5;
+    return [yMin, yMax] as [number, number];
+  }, [gamesSeries]);
+
   if (loading || (!loaded && user)) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -647,7 +657,7 @@ export default function ProfilePage() {
                       </defs>
                       <CartesianGrid vertical={false} strokeDasharray="3 3" />
                       <XAxis dataKey="label" hide />
-                      <YAxis tickLine={false} axisLine={false} width={32} />
+                      <YAxis tickLine={false} axisLine={false} width={32} domain={chartDomain} />
                       <ChartTooltip
                         content={
                           <ChartTooltipContent
@@ -664,7 +674,7 @@ export default function ProfilePage() {
                           />
                         }
                       />
-                      <Area type="monotone" dataKey="rating" stroke="hsl(var(--chart-1))" fill="url(#ratingFill)" strokeWidth={2} dot={{ r: 2 }} />
+                      <Area type="monotone" dataKey="rating" stroke="hsl(var(--chart-1))" fill="url(#ratingFill)" strokeWidth={2} dot={{ r: 5 }} activeDot={{ r: 6 }} />
                     </AreaChart>
                   </ChartContainer>
                 )}

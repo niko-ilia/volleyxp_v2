@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
@@ -9,11 +9,13 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
   const { user, loading, refreshUser } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [guardReady, setGuardReady] = useState(false);
 
   useEffect(() => {
     let done = false;
     (async () => {
       if (!done) await refreshUser().catch(() => void 0);
+      if (!done) setGuardReady(true);
     })();
     return () => { done = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -27,12 +29,12 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
   const canViewCoach = roles.includes("coach") || roles.includes("super_admin");
 
   useEffect(() => {
-    if (!loading && user && !canViewCoach) {
+    if (guardReady && !loading && user && !canViewCoach) {
       router.replace("/");
     }
-  }, [loading, user, canViewCoach, router, pathname]);
+  }, [guardReady, loading, user, canViewCoach, router, pathname]);
 
-  if (loading) {
+  if (loading || !guardReady) {
     return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
   }
 

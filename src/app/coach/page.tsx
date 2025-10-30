@@ -265,7 +265,7 @@ export default function CoachDashboardPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {already ? (
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled>
+                          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white opacity-100 disabled:opacity-100 cursor-default" disabled>
                             Done
                           </Button>
                         ) : (

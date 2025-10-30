@@ -15,15 +15,15 @@ const createMatch = async (req, res) => {
     if (!level) missing.push('level');
     const locationMissing = (!place && !courtId);
     if (missing.length > 0) {
-      return res.status(400).json({ code: 'VALIDATION_ERROR', message: `Missing required fields: ${missing.join(', ')}` });
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: `Заполните обязательные поля: ${missing.join(', ')}` });
     }
     if (locationMissing) {
-      return res.status(400).json({ code: 'LOCATION_REQUIRED', message: 'Please choose a court or enter a custom place' });
+      return res.status(400).json({ code: 'LOCATION_REQUIRED', message: 'Укажите корт или введите место вручную' });
     }
     // Проверка, что дата в будущем
     const start = new Date(startDateTime);
     if (isNaN(start) || start < new Date()) {
-      return res.status(400).json({ code: 'DATE_MUST_BE_FUTURE', message: 'Start date must be in the future' });
+      return res.status(400).json({ code: 'DATE_MUST_BE_FUTURE', message: 'Дата и время начала должны быть в будущем' });
     }
     
     let finalPlace = place;

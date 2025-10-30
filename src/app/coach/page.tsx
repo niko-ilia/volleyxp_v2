@@ -257,74 +257,84 @@ export default function CoachDashboardPage() {
         <CardHeader>
           <CardTitle>Allowed creators for Training</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2 items-center">
-            <label htmlFor="coach-search" className="sr-only">Search users</label>
-            <Input id="coach-search" placeholder="Search by email or name" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchUsers(); } if (e.key === 'Escape') { setSearch(''); setResults([]);} }} />
-            <Button type="button" onClick={searchUsers} disabled={searching || search.trim().length < 2}>{searching ? 'Searching…' : 'Search'}</Button>
-          </div>
-          {results.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map(r => {
-                    const already = allowed.some(a => a._id === r._id) || justAllowedIds.includes(r._id);
-                    return (
-                    <TableRow key={r._id}>
-                      <TableCell>
-                        <div>{r.name || r.emailMasked}</div>
-                        <div className="text-xs text-muted-foreground">{r.emailMasked}</div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {already ? (
-                          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white opacity-100 disabled:opacity-100 cursor-default" disabled>
-                            Done
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="secondary" onClick={() => addAllowed(r)}>Allow</Button>
-                        )}
-                      </TableCell>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Left: Allowed list */}
+            <div>
+              <div className="mb-2 text-sm font-medium">Allowed</div>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
-                  )})}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {allowed.length === 0 ? (
+                      <TableRow><TableCell className="text-xs text-muted-foreground" colSpan={2}>No allowed users</TableCell></TableRow>
+                    ) : allowed.map(a => (
+                      <TableRow key={a._id}>
+                        <TableCell>
+                          <div>{a.name || a.email}</div>
+                          <div className="text-xs text-muted-foreground">{a.email}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="destructive" onClick={() => removeAllowed(a._id)}>Remove</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="mt-2 flex justify-between items-center">
+                <div className="text-xs text-muted-foreground">{feedback}</div>
+                <Button onClick={saveAllowed} disabled={saving || !dirty}>{saving ? 'Saving...' : 'Save'}</Button>
+              </div>
             </div>
-          ) : (search.trim().length >= 2 && !searching ? <div className="text-xs text-muted-foreground">No results</div> : null)}
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Allowed</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allowed.length === 0 ? (
-                  <TableRow><TableCell className="text-xs text-muted-foreground" colSpan={2}>No allowed users</TableCell></TableRow>
-                ) : allowed.map(a => (
-                  <TableRow key={a._id}>
-                    <TableCell>
-                      <div>{a.name || a.email}</div>
-                      <div className="text-xs text-muted-foreground">{a.email}</div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="destructive" onClick={() => removeAllowed(a._id)}>Remove</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex justify-between items-center">
-            <div className="text-xs text-muted-foreground">{feedback}</div>
-            <Button onClick={saveAllowed} disabled={saving || !dirty}>{saving ? 'Saving...' : 'Save'}</Button>
+            {/* Right: Search and results */}
+            <div>
+              <div className="flex gap-2 items-center">
+                <label htmlFor="coach-search" className="sr-only">Search users</label>
+                <Input id="coach-search" placeholder="Search by email or name" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchUsers(); } if (e.key === 'Escape') { setSearch(''); setResults([]);} }} />
+                <Button type="button" onClick={searchUsers} disabled={searching || search.trim().length < 2}>{searching ? 'Searching…' : 'Search'}</Button>
+              </div>
+              {results.length > 0 ? (
+                <div className="mt-3 rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {results.map(r => {
+                        const already = allowed.some(a => a._id === r._id) || justAllowedIds.includes(r._id);
+                        return (
+                          <TableRow key={r._id}>
+                            <TableCell>
+                              <div>{r.name || r.emailMasked}</div>
+                              <div className="text-xs text-muted-foreground">{r.emailMasked}</div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {already ? (
+                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white opacity-100 disabled:opacity-100 cursor-default" disabled>
+                                  Done
+                                </Button>
+                              ) : (
+                                <Button size="sm" variant="secondary" onClick={() => addAllowed(r)}>Allow</Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (search.trim().length >= 2 && !searching ? <div className="mt-3 text-xs text-muted-foreground">No results</div> : null)}
+            </div>
           </div>
         </CardContent>
       </Card>

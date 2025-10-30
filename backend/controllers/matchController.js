@@ -8,8 +8,17 @@ const createMatch = async (req, res) => {
   try {
     const { title, description, place, startDateTime, duration, maxParticipants, level, courtId, type, coachId } = req.body;
     // Валидация обязательных полей (place может прийти пустым, если есть courtId)
-    if (!title || !startDateTime || !duration || !level || (!place && !courtId)) {
-      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Missing required fields' });
+    const missing = [];
+    if (!title) missing.push('title');
+    if (!startDateTime) missing.push('startDateTime');
+    if (!duration) missing.push('duration');
+    if (!level) missing.push('level');
+    const locationMissing = (!place && !courtId);
+    if (missing.length > 0) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: `Missing required fields: ${missing.join(', ')}` });
+    }
+    if (locationMissing) {
+      return res.status(400).json({ code: 'LOCATION_REQUIRED', message: 'Please choose a court or enter a custom place' });
     }
     // Проверка, что дата в будущем
     const start = new Date(startDateTime);

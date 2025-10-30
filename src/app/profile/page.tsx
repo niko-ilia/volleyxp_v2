@@ -13,7 +13,7 @@ import { ArrowRight, X } from "lucide-react";
 import { saveAuth, getToken, getRefreshToken } from "@/lib/auth/storage";
 import Image from "next/image";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 type ProfileResponse = {
   id: string;
@@ -43,7 +43,7 @@ export default function ProfilePage() {
   const [historyLoaded, setHistoryLoaded] = React.useState(false);
   const [matchesTotalPages, setMatchesTotalPages] = React.useState(1);
   const [matchesTotal, setMatchesTotal] = React.useState(0);
-  const [gamesSeries, setGamesSeries] = React.useState<Array<{ label: string; delta: number }>>([]);
+  const [gamesSeries, setGamesSeries] = React.useState<Array<{ label: string; delta: number; rating: number; dateStr: string }>>([]);
   const [gamesLoading, setGamesLoading] = React.useState<boolean>(false);
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
@@ -270,7 +270,7 @@ export default function ProfilePage() {
 
   // Removed summary computation — overview provides summary
 
-  // Fetch last 10 games rating deltas for the chart
+  // Fetch last 10 games points (rating after each game) for the chart
   React.useEffect(() => {
     let cancelled = false;
     async function loadGames() {
@@ -280,25 +280,42 @@ export default function ProfilePage() {
         if (!res.ok) throw new Error('Failed to load match history');
         const hist = await res.json();
         if (cancelled) return;
-        const rows = [] as Array<{ date: number; label: string; delta: number }>;
-        const items = Array.isArray(hist) ? hist : [];
+        const items = (Array.isArray(hist) ? hist : []) as Array<any>;
+        // Sort matches ascending by date
+        items.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+        const points: Array<{ ts: number; label: string; delta: number; rating: number; dateStr: string }> = [];
+        let currentRating: number | null = null;
         for (const h of items) {
           const d0 = h?.date ? new Date(h.date) : null;
           const baseTs = d0 && !isNaN((d0 as any)) ? d0.getTime() : 0;
-          const details = Array.isArray(h?.details) ? h.details : [];
+          const details = Array.isArray(h?.details) ? [...h.details].sort((a,b)=> (a?.gameIndex||0) - (b?.gameIndex||0)) : [];
+          // Determine start rating for this match from newRating - sum(details.delta)
+          const sumDelta = details.reduce((acc: number, g: any) => acc + (Number(g?.delta) || 0), 0);
+          const matchEndRating = Number(h?.newRating);
+          let startRating = Number.isFinite(matchEndRating) ? matchEndRating - sumDelta : null;
+          if (currentRating !== null && Number.isFinite(currentRating)) {
+            startRating = currentRating;
+          }
+          if (startRating === null || !Number.isFinite(startRating)) {
+            // Fallback: accumulate from zero
+            startRating = 0;
+          }
+          let r: number = Number(startRating ?? 0);
           for (const g of details) {
             const dv = Number(g?.delta);
-            if (Number.isFinite(dv)) {
-              const gi = Number(g?.gameIndex ?? 0);
-              const ts = baseTs + gi; // stable within match
-              const lbl = d0 ? d0.toLocaleDateString('en-US') + ` • G${gi + 1}` : `G${gi + 1}`;
-              rows.push({ date: ts, label: lbl, delta: dv });
-            }
+            if (!Number.isFinite(dv)) continue;
+            r = r + dv;
+            const gi = Number(g?.gameIndex ?? 0);
+            const ts = baseTs + gi;
+            const dateStr = d0 ? d0.toLocaleDateString('en-US') : '';
+            const lbl = dateStr ? `${dateStr} • G${gi + 1}` : `G${gi + 1}`;
+            points.push({ ts, label: lbl, delta: dv, rating: r, dateStr });
           }
+          currentRating = r;
         }
-        rows.sort((a, b) => a.date - b.date);
-        const last10 = rows.slice(Math.max(0, rows.length - 10));
-        setGamesSeries(last10.map(r => ({ label: r.label, delta: r.delta })));
+        points.sort((a, b) => a.ts - b.ts);
+        const last10 = points.slice(Math.max(0, points.length - 10));
+        setGamesSeries(last10.map(p => ({ label: p.label, delta: p.delta, rating: Number(p.rating.toFixed ? p.rating.toFixed(2) : p.rating), dateStr: p.dateStr })));
       } catch {
         setGamesSeries([]);
       } finally {
@@ -609,25 +626,46 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Rating change — last 10 games */}
+              {/* Rating — last 10 games */}
               <div className="mt-4">
-                <div className="text-left text-sm font-medium mb-2">Rating change — last 10 games</div>
+                <div className="text-left text-sm font-medium mb-2">Rating — last 10 games</div>
                 {!gamesSeries.length && gamesLoading ? (
                   <div className="h-40 w-full animate-pulse rounded bg-muted" />
                 ) : !gamesSeries.length ? (
                   <div className="text-xs text-muted-foreground">No games yet</div>
                 ) : (
                   <ChartContainer
-                    config={{ delta: { label: "Δ rating", color: "hsl(var(--chart-1))" } }}
+                    config={{ rating: { label: "Rating", color: "hsl(var(--chart-1))" } }}
                     className="w-full"
                   >
-                    <LineChart data={gamesSeries} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                    <AreaChart data={gamesSeries} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                      <defs>
+                        <linearGradient id="ratingFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                      <XAxis dataKey="label" hide />
                       <YAxis tickLine={false} axisLine={false} width={32} />
-                      <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-                      <Line type="monotone" dataKey="delta" stroke="var(--color-delta, hsl(var(--chart-1)))" strokeWidth={2} dot={{ r: 2 }} />
-                    </LineChart>
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            hideIndicator
+                            formatter={(value: any, name: any, item: any) => {
+                              const p = item?.payload as any;
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="text-muted-foreground">{p?.dateStr}</div>
+                                  <div className="font-mono">Δ {Number(p?.delta).toFixed(2)}</div>
+                                </div>
+                              );
+                            }}
+                          />
+                        }
+                      />
+                      <Area type="monotone" dataKey="rating" stroke="hsl(var(--chart-1))" fill="url(#ratingFill)" strokeWidth={2} dot={{ r: 2 }} />
+                    </AreaChart>
                   </ChartContainer>
                 )}
               </div>

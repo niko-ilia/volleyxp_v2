@@ -189,6 +189,8 @@ export default function CreateMatchPage() {
         duration: created.duration,
         participants: participantsForShare,
         creator: created.creator,
+        type: created.type,
+        coachName: created?.coach?.name || created?.coach?.email || undefined,
       });
       const url = `/match/${created._id}`;
       const origin = typeof window !== "undefined" ? window.location.origin : "";

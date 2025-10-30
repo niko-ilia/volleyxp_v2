@@ -14,6 +14,9 @@ export type ShareBuildInput = {
   duration: number;
   participants: any[];
   creator?: any;
+  // Optional training metadata
+  type?: 'match' | 'training';
+  coachName?: string | null;
 };
 
 export function buildShareMessage(m: ShareBuildInput) {
@@ -29,6 +32,9 @@ export function buildShareMessage(m: ShareBuildInput) {
   lines.push("\n");
   lines.push(`📅 ${capitalize(weekday)} ${day}, ${hh}:${mm} (${durStr})`);
   lines.push(`📍 ${m.place}`);
+  if (m.type === 'training' && (m.coachName || '').trim()) {
+    lines.push(`🧑‍🏫 Training with ${m.coachName}`);
+  }
   lines.push(`${m.isPrivate ? "🔒 Private" : "🌐 Public"}`);
   lines.push(`🎯 Player Level: ${m.level}`);
   // Build a de-duplicated map of displayName -> rating (if present)

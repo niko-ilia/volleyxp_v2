@@ -270,7 +270,7 @@ export default function ProfilePage() {
 
   // Removed summary computation — overview provides summary
 
-  // Fetch last 10 games points (rating after each game) for the chart
+  // Fetch last 10 matches points (rating after each match) for the chart
   React.useEffect(() => {
     let cancelled = false;
     async function loadGames() {
@@ -288,30 +288,19 @@ export default function ProfilePage() {
         for (const h of items) {
           const d0 = h?.date ? new Date(h.date) : null;
           const baseTs = d0 && !isNaN((d0 as any)) ? d0.getTime() : 0;
-          const details = Array.isArray(h?.details) ? [...h.details].sort((a,b)=> (a?.gameIndex||0) - (b?.gameIndex||0)) : [];
-          // Determine start rating for this match from newRating - sum(details.delta)
+          const details = Array.isArray(h?.details) ? h.details : [];
           const sumDelta = details.reduce((acc: number, g: any) => acc + (Number(g?.delta) || 0), 0);
           const matchEndRating = Number(h?.newRating);
-          let startRating = Number.isFinite(matchEndRating) ? matchEndRating - sumDelta : null;
-          if (currentRating !== null && Number.isFinite(currentRating)) {
-            startRating = currentRating;
+          let startRating: number | null = currentRating;
+          if (startRating === null || !Number.isFinite(startRating as any)) {
+            // If no prior rating, infer from newRating - sumDelta
+            startRating = Number.isFinite(matchEndRating) ? matchEndRating - sumDelta : 0;
           }
-          if (startRating === null || !Number.isFinite(startRating)) {
-            // Fallback: accumulate from zero
-            startRating = 0;
-          }
-          let r: number = Number(startRating ?? 0);
-          for (const g of details) {
-            const dv = Number(g?.delta);
-            if (!Number.isFinite(dv)) continue;
-            r = r + dv;
-            const gi = Number(g?.gameIndex ?? 0);
-            const ts = baseTs + gi;
-            const dateStr = d0 ? d0.toLocaleDateString('en-US') : '';
-            const lbl = dateStr ? `${dateStr} • G${gi + 1}` : `G${gi + 1}`;
-            points.push({ ts, label: lbl, delta: dv, rating: r, dateStr });
-          }
-          currentRating = r;
+          const endRating: number = Number.isFinite(matchEndRating) ? matchEndRating : Number(startRating) + sumDelta;
+          const dateStr = d0 ? d0.toLocaleDateString('en-US') : '';
+          const lbl = dateStr;
+          points.push({ ts: baseTs, label: lbl, delta: sumDelta, rating: endRating, dateStr });
+          currentRating = endRating;
         }
         points.sort((a, b) => a.ts - b.ts);
         const last10 = points.slice(Math.max(0, points.length - 10));
@@ -638,7 +627,7 @@ export default function ProfilePage() {
 
               {/* Rating — last 10 games */}
               <div className="mt-4">
-                <div className="text-left text-sm font-medium mb-2">Rating — last 10 games</div>
+                <div className="text-left text-sm font-medium mb-2">Rating — last 10 matches</div>
                 {!gamesSeries.length && gamesLoading ? (
                   <div className="h-40 w-full animate-pulse rounded bg-muted" />
                 ) : !gamesSeries.length ? (
@@ -670,10 +659,12 @@ export default function ProfilePage() {
                             hideIndicator
                             formatter={(value: any, name: any, item: any) => {
                               const p = item?.payload as any;
+                              const dv = Number(p?.delta || 0);
+                              const color = dv > 0 ? 'text-green-600' : dv < 0 ? 'text-red-600' : 'text-muted-foreground';
                               return (
                                 <div className="flex flex-col gap-0.5">
                                   <div className="text-muted-foreground">{p?.dateStr}</div>
-                                  <div className="font-mono">Δ {Number(p?.delta).toFixed(2)}</div>
+                                  <div className={`font-mono ${color}`}>Δ {dv.toFixed(2)}</div>
                                 </div>
                               );
                             }}

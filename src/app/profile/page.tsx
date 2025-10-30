@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, X } from "lucide-react";
 import { saveAuth, getToken, getRefreshToken } from "@/lib/auth/storage";
 import Image from "next/image";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 
 type ProfileResponse = {
   id: string;
@@ -41,6 +43,8 @@ export default function ProfilePage() {
   const [historyLoaded, setHistoryLoaded] = React.useState(false);
   const [matchesTotalPages, setMatchesTotalPages] = React.useState(1);
   const [matchesTotal, setMatchesTotal] = React.useState(0);
+  const [gamesSeries, setGamesSeries] = React.useState<Array<{ label: string; delta: number }>>([]);
+  const [gamesLoading, setGamesLoading] = React.useState<boolean>(false);
   // Dedupe in-flight/attempted stats fetches to avoid network spam on re-renders
   const requestedStatsRef = React.useRef<Set<string>>(new Set());
   // Telegram linking UI state
@@ -265,6 +269,45 @@ export default function ProfilePage() {
   // Removed per-match fallback stats loader — overview includes stats
 
   // Removed summary computation — overview provides summary
+
+  // Fetch last 10 games rating deltas for the chart
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadGames() {
+      try {
+        setGamesLoading(true);
+        const res = await authFetchWithRetry('/api/users/match-history');
+        if (!res.ok) throw new Error('Failed to load match history');
+        const hist = await res.json();
+        if (cancelled) return;
+        const rows = [] as Array<{ date: number; label: string; delta: number }>;
+        const items = Array.isArray(hist) ? hist : [];
+        for (const h of items) {
+          const d0 = h?.date ? new Date(h.date) : null;
+          const baseTs = d0 && !isNaN((d0 as any)) ? d0.getTime() : 0;
+          const details = Array.isArray(h?.details) ? h.details : [];
+          for (const g of details) {
+            const dv = Number(g?.delta);
+            if (Number.isFinite(dv)) {
+              const gi = Number(g?.gameIndex ?? 0);
+              const ts = baseTs + gi; // stable within match
+              const lbl = d0 ? d0.toLocaleDateString('en-US') + ` • G${gi + 1}` : `G${gi + 1}`;
+              rows.push({ date: ts, label: lbl, delta: dv });
+            }
+          }
+        }
+        rows.sort((a, b) => a.date - b.date);
+        const last10 = rows.slice(Math.max(0, rows.length - 10));
+        setGamesSeries(last10.map(r => ({ label: r.label, delta: r.delta })));
+      } catch {
+        setGamesSeries([]);
+      } finally {
+        setGamesLoading(false);
+      }
+    }
+    if (user) loadGames();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const onSave = React.useCallback(async () => {
     if (!name.trim()) return;
@@ -564,6 +607,29 @@ export default function ProfilePage() {
                   <div className="text-xs text-muted-foreground">Rating</div>
                   <div className="text-xl font-semibold">{profile?.rating?.toFixed ? profile.rating.toFixed(2) : (profile?.rating ?? '—')}</div>
                 </div>
+              </div>
+
+              {/* Rating change — last 10 games */}
+              <div className="mt-4">
+                <div className="text-left text-sm font-medium mb-2">Rating change — last 10 games</div>
+                {!gamesSeries.length && gamesLoading ? (
+                  <div className="h-40 w-full animate-pulse rounded bg-muted" />
+                ) : !gamesSeries.length ? (
+                  <div className="text-xs text-muted-foreground">No games yet</div>
+                ) : (
+                  <ChartContainer
+                    config={{ delta: { label: "Δ rating", color: "hsl(var(--chart-1))" } }}
+                    className="w-full"
+                  >
+                    <LineChart data={gamesSeries} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                      <YAxis tickLine={false} axisLine={false} width={32} />
+                      <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
+                      <Line type="monotone" dataKey="delta" stroke="var(--color-delta, hsl(var(--chart-1)))" strokeWidth={2} dot={{ r: 2 }} />
+                    </LineChart>
+                  </ChartContainer>
+                )}
               </div>
             </div>
           </CardContent>

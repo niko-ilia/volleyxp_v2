@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, refreshUser } = useAuth();
@@ -48,9 +50,28 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  const tabs = [
+    { href: "/coach", value: "schedule", match: "/coach", label: "Расписание" },
+    { href: "/coach/players", value: "players", match: "/coach/players", label: "Игроки" },
+    { href: "/coach/settings", value: "settings", match: "/coach/settings", label: "Настройки" },
+  ] as const;
+  const active = tabs.find(t => pathname?.startsWith(t.match))?.value ?? "schedule";
+
   return (
     <div className="mx-auto max-w-7xl p-6">
-      {children}
+      <h1 className="text-3xl font-bold tracking-tight mb-4">Панель тренера</h1>
+      <Tabs value={active} className="w-full">
+        <TabsList className="grid grid-cols-3 w-full">
+          {tabs.map(t => (
+            <TabsTrigger key={t.value} value={t.value} asChild>
+              <Link href={t.href} className={cn("w-full text-center")}>{t.label}</Link>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      <div className="mt-6">
+        {children}
+      </div>
     </div>
   );
 }

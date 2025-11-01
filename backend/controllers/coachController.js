@@ -353,3 +353,47 @@ async function dispatchTomorrowNotifications() {
 module.exports.dispatchUpcomingNotifications = dispatchUpcomingNotifications;
 module.exports.dispatchTomorrowNotifications = dispatchTomorrowNotifications;
 
+// POST /api/coach/notify-test — send test DM for current coach for tomorrow
+async function notifyTestForMe(req, res) {
+  try {
+    const me = await User.findById(req.user._id).select('telegramId coachSettings');
+    if (!me) return res.status(404).json({ message: 'User not found' });
+    if (!me.telegramId) return res.status(400).json({ message: 'Telegram is not linked for personal messages' });
+    if (!me.coachSettings || !me.coachSettings.notifyBeforeTraining) {
+      return res.status(400).json({ message: 'Reminder is not enabled' });
+    }
+
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+    const trainings = await Match.find({ type: 'training', coach: me._id, startDateTime: { $gte: start, $lte: end } })
+      .select('startDateTime place participants')
+      .lean();
+
+    const dayStr = start.toLocaleDateString();
+    let text = '';
+    if (!trainings || trainings.length === 0) {
+      text = `Reminder: no trainings on ${dayStr}`;
+    } else {
+      const lines = [`Reminder: trainings on ${dayStr}`, ''];
+      trainings.sort((a,b) => new Date(a.startDateTime) - new Date(b.startDateTime));
+      for (const t of trainings) {
+        const d = new Date(t.startDateTime);
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const place = t.place || '—';
+        const count = Array.isArray(t.participants) ? t.participants.length : 0;
+        lines.push(`• ${time} — ${place} — ${count} players`);
+      }
+      text = lines.join('\n');
+    }
+
+    await sendTelegramMessage({ chatId: me.telegramId, text, disableWebPagePreview: true });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('notifyTestForMe error:', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
+
+module.exports.notifyTestForMe = notifyTestForMe;
+

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { getAvailableCoaches, getAllowedCreators, updateAllowedCreators, searchUsers, listCoachTrainings, coachStats, coachPlayersStats, getNotifySettings, updateNotifySettings, dispatchUpcomingNotifications } = require('../controllers/coachController');
+const { getAvailableCoaches, getAllowedCreators, updateAllowedCreators, searchUsers, listCoachTrainings, coachStats, coachPlayersStats, getNotifySettings, updateNotifySettings, dispatchUpcomingNotifications, notifyTestForMe } = require('../controllers/coachController');
 const { requireRole } = require('../middleware/adminAuth');
 
 router.use(auth);
@@ -22,6 +22,7 @@ router.get('/stats', coachStats);
 router.get('/players-stats', coachPlayersStats);
 router.get('/notify-settings', getNotifySettings);
 router.put('/notify-settings', updateNotifySettings);
+router.post('/notify-test', requireRole(['coach','super_admin']), notifyTestForMe);
 // Trigger notifications for upcoming trainings (protected)
 router.post('/notify-dispatch', requireRole(['super_admin']), dispatchUpcomingNotifications);
 

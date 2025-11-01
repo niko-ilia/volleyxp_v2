@@ -22,6 +22,8 @@ export default function CoachSettingsPage() {
   const [notifyEnabled, setNotifyEnabled] = useState<boolean>(false);
   const [telegramLinked, setTelegramLinked] = useState<boolean>(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [notifFeedback, setNotifFeedback] = useState<string | null>(null);
 
   function maskEmail(email?: string) {
     if (!email) return "";
@@ -137,6 +139,23 @@ export default function CoachSettingsPage() {
             <label htmlFor="notify-toggle" className="cursor-pointer">Enable reminder before training</label>
           </div>
           <div className="text-xs text-muted-foreground">Sends Telegram reminders for upcoming trainings.</div>
+          <div>
+            <Button size="sm" disabled={!notifyEnabled || sendingTest} onClick={async () => {
+              setNotifFeedback(null); setSendingTest(true);
+              try {
+                const r = await authFetchWithRetry('/api/coach/notify-test', { method: 'POST' });
+                if (!r.ok) {
+                  const j = await r.json().catch(() => ({ message: String(r.status) }));
+                  setNotifFeedback(j?.message || 'Failed to send');
+                } else {
+                  setNotifFeedback('Test message sent');
+                }
+              } catch (e: any) {
+                setNotifFeedback(e?.message || 'Failed to send');
+              } finally { setSendingTest(false); }
+            }}>Send test message</Button>
+          </div>
+          {notifFeedback && <div className="text-xs text-muted-foreground">{notifFeedback}</div>}
         </CardContent>
       </Card>
 

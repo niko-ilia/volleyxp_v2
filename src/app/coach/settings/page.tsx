@@ -123,19 +123,19 @@ export default function CoachSettingsPage() {
                 } catch {}
               }}
             />
-            <label htmlFor="notify-toggle" className="cursor-pointer">Включить уведомление перед тренировкой</label>
+            <label htmlFor="notify-toggle" className="cursor-pointer">Enable reminder before training</label>
           </div>
-          <div className="text-xs text-muted-foreground">Включает отправку уведомлений в Telegram о предстоящих тренировках.</div>
+          <div className="text-xs text-muted-foreground">Sends Telegram reminders for upcoming trainings.</div>
         </CardContent>
       </Card>
 
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Привяжите Telegram</DialogTitle>
+            <DialogTitle>Link Telegram</DialogTitle>
           </DialogHeader>
           <div className="text-sm text-muted-foreground">
-            Чтобы включить уведомления, привяжите Telegram аккаунт в профиле (`/profile`).
+            To enable notifications, link your Telegram account in Profile (/profile).
           </div>
         </DialogContent>
       </Dialog>

@@ -109,8 +109,9 @@ function Calendar({
         ),
         range_middle: cn("rounded-none", defaultClassNames.range_middle),
         range_end: cn("rounded-r-md bg-accent", defaultClassNames.range_end),
+        // Make "today" subtle (no solid background) to avoid confusing highlight
         today: cn(
-          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
+          "ring-1 ring-ring/40 rounded-md data-[selected=true]:rounded-none",
           defaultClassNames.today
         ),
         outside: cn(

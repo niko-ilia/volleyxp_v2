@@ -53,15 +53,19 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
   const tabs = [
     { href: "/coach", value: "schedule", match: "/coach", label: "Расписание" },
     { href: "/coach/players", value: "players", match: "/coach/players", label: "Игроки" },
+    { href: "/coach/stats", value: "stats", match: "/coach/stats", label: "Статистика" },
     { href: "/coach/settings", value: "settings", match: "/coach/settings", label: "Настройки" },
   ] as const;
-  const active = tabs.find(t => pathname?.startsWith(t.match))?.value ?? "schedule";
+  // Prefer the most specific match (longest prefix) to avoid '/coach' catching subroutes
+  const active = [...tabs]
+    .sort((a, b) => b.match.length - a.match.length)
+    .find(t => (pathname || '').startsWith(t.match))?.value ?? "schedule";
 
   return (
     <div className="mx-auto max-w-7xl p-6">
-      <h1 className="text-3xl font-bold tracking-tight mb-4">Панель тренера</h1>
+      <h1 className="text-3xl font-bold tracking-tight mb-4">Coach Dashboard</h1>
       <Tabs value={active} className="w-full">
-        <TabsList className="grid grid-cols-3 w-full">
+        <TabsList className="grid grid-cols-4 w-full">
           {tabs.map(t => (
             <TabsTrigger key={t.value} value={t.value} asChild>
               <Link href={t.href} className={cn("w-full text-center")}>{t.label}</Link>

@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function CoachSettingsPage() {
   const { user } = useAuth();
@@ -17,6 +19,9 @@ export default function CoachSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [justAllowedIds, setJustAllowedIds] = useState<string[]>([]);
+  const [notifyEnabled, setNotifyEnabled] = useState<boolean>(false);
+  const [telegramLinked, setTelegramLinked] = useState<boolean>(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,6 +31,28 @@ export default function CoachSettingsPage() {
         if (!r.ok) return;
         const j = await r.json();
         if (!cancelled) setAllowed(Array.isArray(j?.items) ? j.items : []);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Load telegram link status and notify toggle
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [p, n] = await Promise.all([
+          authFetchWithRetry('/api/users/profile'),
+          authFetchWithRetry('/api/coach/notify-settings')
+        ]);
+        if (p.ok) {
+          const pj = await p.json();
+          if (!cancelled) setTelegramLinked(Boolean(pj?.telegramChannel?.linked));
+        }
+        if (n.ok) {
+          const nj = await n.json();
+          if (!cancelled) setNotifyEnabled(Boolean(nj?.notifyBeforeTraining));
+        }
       } catch {}
     })();
     return () => { cancelled = true; };
@@ -78,6 +105,41 @@ export default function CoachSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="w-full md:w-1/2 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="notify-toggle"
+              checked={notifyEnabled}
+              onCheckedChange={async (v) => {
+                if (v && !telegramLinked) { setInfoOpen(true); return; }
+                setNotifyEnabled(Boolean(v));
+                try {
+                  await authFetchWithRetry('/api/coach/notify-settings', { method: 'PUT', body: JSON.stringify({ notifyBeforeTraining: Boolean(v) }) });
+                } catch {}
+              }}
+            />
+            <label htmlFor="notify-toggle" className="cursor-pointer">Включить уведомление перед тренировкой</label>
+          </div>
+          <div className="text-xs text-muted-foreground">Включает отправку уведомлений в Telegram о предстоящих тренировках.</div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Привяжите Telegram</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Чтобы включить уведомления, привяжите Telegram аккаунт в профиле (`/profile`).
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle>Allowed creators for Training</CardTitle>
@@ -140,6 +202,7 @@ export default function CoachSettingsPage() {
           <div className="text-xs text-muted-foreground">{feedback}</div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

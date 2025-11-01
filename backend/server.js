@@ -121,6 +121,23 @@ if (require.main === module) {
   connectDB()
     .then(() => {
       app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+      // Schedule daily reminders at 21:00 local timezone (configurable via CRON_TZ or TZ)
+      try {
+        const cron = require('node-cron');
+        const tz = 'UTC';
+        const { dispatchTomorrowNotifications } = require('./controllers/coachController');
+        // 0 19 * * * -> at 19:00 UTC every day
+        cron.schedule('0 19 * * *', async () => {
+          try {
+            await dispatchTomorrowNotifications();
+          } catch (e) {
+            console.error('cron dispatchTomorrowNotifications error:', e);
+          }
+        }, { timezone: tz });
+        console.log(`Cron scheduled: 19:00 daily (timezone ${tz})`);
+      } catch (e) {
+        console.error('Failed to schedule cron:', e?.message || e);
+      }
     })
     .catch(err => {
       console.error('Failed to start server:', err);

@@ -113,6 +113,7 @@ const userSchema = new mongoose.Schema({
   // Настройки тренера (для пользователей с ролью coach)
   coachSettings: {
     allowedCreators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // пользователи, которым разрешено создавать тренировки с этим тренером
+    notifyBeforeTraining: { type: Boolean, default: false }, // личные напоминания в TG
   }
 });
 

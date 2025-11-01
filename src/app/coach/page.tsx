@@ -106,13 +106,11 @@ export default function CoachDashboardPage() {
                           <Link
                             key={t._id}
                             href={`/match/${t._id}`}
-                            className="block w-full rounded bg-primary/10 ring-1 ring-primary/20 px-1 py-0.5 text-[11px] hover:bg-primary/15"
+                            className="block w-full rounded bg-primary/10 ring-1 ring-primary/20 px-1 py-1 text-[11px] hover:bg-primary/15"
                           >
-                            <span className="flex items-center justify-between gap-1">
+                            <span className="flex flex-col leading-tight">
                               <span className="font-medium">{tm}</span>
-                              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/25 text-[10px] leading-none shrink-0">
-                                {t.participantsCount}
-                              </span>
+                              <span className="text-[10px] text-muted-foreground">pl: {t.participantsCount}</span>
                             </span>
                           </Link>
                         );

@@ -23,6 +23,16 @@ export default function CoachSettingsPage() {
   const [telegramLinked, setTelegramLinked] = useState<boolean>(false);
   const [infoOpen, setInfoOpen] = useState(false);
 
+  function maskEmail(email?: string) {
+    if (!email) return "";
+    try {
+      const [name, domain] = email.split("@");
+      if (!domain) return email;
+      const visible = name.length <= 2 ? name[0] : name.slice(0, 2);
+      return `${visible}***@${domain}`;
+    } catch { return email; }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -159,8 +169,8 @@ export default function CoachSettingsPage() {
                 ) : allowed.map(a => (
                   <TableRow key={a._id}>
                     <TableCell>
-                      <div>{a.name || a.email}</div>
-                      <div className="text-xs text-muted-foreground">{a.email}</div>
+                      <div>{a.name || maskEmail(a.email)}</div>
+                      <div className="text-xs text-muted-foreground">{maskEmail(a.email)}</div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="destructive" disabled={saving} onClick={() => removeAllowed(a._id)}>Remove</Button>

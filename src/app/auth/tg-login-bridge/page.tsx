@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { consumeSavedNextPath, sanitizeNextPath, saveNextPath } from "@/lib/auth/next";
+import { saveAuth } from "@/lib/auth/storage";
 
 export default function TgLoginBridgePage() {
   const [status, setStatus] = useState("Authorizing...");
@@ -57,10 +58,10 @@ export default function TgLoginBridgePage() {
         const data = await res.json();
         setStatus('Authorized');
         try {
-          // Save tokens locally in case we opened in the same tab (no parent window)
-          if (data?.token) localStorage.setItem('volley_token', data.token);
-          if (data?.refreshToken) localStorage.setItem('volley_refresh_token', data.refreshToken);
-          if (data?.user) localStorage.setItem('volley_user', JSON.stringify(data.user));
+          // Persist auth locally (fires volley:auth-changed)
+          if (data?.token && data?.user) {
+            saveAuth(data.token, data.refreshToken ?? null, data.user);
+          }
         } catch {}
         try { window.parent?.postMessage({ type: 'tg_login_result', ok: true, data }, '*'); } catch {}
         // If we are top-level (no opener/parent), redirect to home

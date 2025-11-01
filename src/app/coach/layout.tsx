@@ -43,18 +43,18 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
   if (!user || !canViewCoach) {
     return (
       <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Доступ запрещён</h1>
-        <p className="text-sm text-muted-foreground">Эта страница доступна только тренерам.</p>
-        <Link className="underline" href="/">На главную</Link>
+        <h1 className="text-2xl font-semibold">Access denied</h1>
+        <p className="text-sm text-muted-foreground">This page is available to coaches only.</p>
+        <Link className="underline" href="/">Go to Home</Link>
       </div>
     );
   }
 
   const tabs = [
-    { href: "/coach", value: "schedule", match: "/coach", label: "Расписание" },
-    { href: "/coach/players", value: "players", match: "/coach/players", label: "Игроки" },
-    { href: "/coach/stats", value: "stats", match: "/coach/stats", label: "Статистика" },
-    { href: "/coach/settings", value: "settings", match: "/coach/settings", label: "Настройки" },
+    { href: "/coach", value: "schedule", match: "/coach", label: "Schedule" },
+    { href: "/coach/players", value: "players", match: "/coach/players", label: "Players" },
+    { href: "/coach/stats", value: "stats", match: "/coach/stats", label: "Statistics" },
+    { href: "/coach/settings", value: "settings", match: "/coach/settings", label: "Settings" },
   ] as const;
   // Prefer the most specific match (longest prefix) to avoid '/coach' catching subroutes
   const active = [...tabs]

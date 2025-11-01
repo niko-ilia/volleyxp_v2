@@ -78,15 +78,15 @@ export default function CoachStatsPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Статистика</CardTitle>
+          <CardTitle>Statistics</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <DateRangePicker value={range} onChange={(r) => { setRange(r); setPresetDays(null); }} className="w-[320px]" />
             <div className="flex items-center gap-2">
-              <Button size="sm" variant={presetDays === 30 ? "secondary" : "outline"} className="rounded-full" onClick={() => applyPreset(30)}>Last 30 days</Button>
-              <Button size="sm" variant={presetDays === 14 ? "secondary" : "outline"} className="rounded-full" onClick={() => applyPreset(14)}>Last 14 days</Button>
-              <Button size="sm" variant={presetDays === 7 ? "secondary" : "outline"} className="rounded-full" onClick={() => applyPreset(7)}>Last 7 days</Button>
+              <Button size="sm" variant={presetDays === 30 ? "secondary" : "outline"} className="rounded-full" onClick={() => applyPreset(30)}>Last 30d</Button>
+              <Button size="sm" variant={presetDays === 14 ? "secondary" : "outline"} className="rounded-full" onClick={() => applyPreset(14)}>Last 14d</Button>
+              <Button size="sm" variant={presetDays === 7 ? "secondary" : "outline"} className="rounded-full" onClick={() => applyPreset(7)}>Last 7d</Button>
             </div>
             <Button size="sm" onClick={() => { setPresetDays(null); loadTable(appliedFromIso, appliedToIso); }} disabled={loading}>Apply</Button>
           </div>

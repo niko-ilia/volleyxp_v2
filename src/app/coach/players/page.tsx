@@ -45,7 +45,7 @@ export default function CoachPlayersPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Игроки</CardTitle>
+          <CardTitle>Players</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto">

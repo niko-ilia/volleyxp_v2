@@ -39,6 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   (globalThis as any).__volleyRefreshInFlightRef = refreshInFlightRef;
   const REFRESH_DEDUP_MS = 3000;
   const refreshUser = useCallback(async () => {
+    // Ensure token state reflects latest localStorage before fetching
+    try {
+      const latestToken = getToken();
+      if (latestToken !== token) setToken(latestToken);
+    } catch {}
     const now = Date.now();
     if (refreshInFlightRef.p && now - refreshInFlightRef.ts < REFRESH_DEDUP_MS) {
       return refreshInFlightRef.p;
@@ -64,6 +69,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })().finally(() => { refreshInFlightRef.p = null; });
     refreshInFlightRef.p = job; refreshInFlightRef.ts = now; return job;
   }, []);
+
+  // React to auth changes initiated outside of this provider (e.g., Google callback page)
+  useEffect(() => {
+    function onAuthChanged() {
+      try {
+        const t = getToken();
+        const u = getUser();
+        setToken(t);
+        setUser(u);
+        if (t) {
+          // Fetch fresh user profile in background
+          void refreshUser();
+        }
+      } catch {}
+    }
+    try {
+      window.addEventListener("volley:auth-changed", onAuthChanged);
+    } catch {}
+    // Cross-tab sync
+    function onStorage(e: StorageEvent) {
+      if (!e) return;
+      const k = e.key || "";
+      if (k.includes("volley_token") || k.includes("volley_user") || k.includes("volley_refresh_token")) {
+        onAuthChanged();
+      }
+    }
+    try { window.addEventListener("storage", onStorage); } catch {}
+    return () => {
+      try { window.removeEventListener("volley:auth-changed", onAuthChanged); } catch {}
+      try { window.removeEventListener("storage", onStorage); } catch {}
+    };
+  }, [refreshUser]);
 
   const loginWithPassword = useCallback(async (email: string, password: string) => {
     const res = await apiFetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });

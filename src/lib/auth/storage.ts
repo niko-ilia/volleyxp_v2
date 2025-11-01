@@ -21,12 +21,19 @@ export function saveAuth(token: string, refreshToken: string | null, user: AuthU
   if (token) localStorage.setItem(TOKEN_KEY, token);
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+  try {
+    // Notify any listeners (e.g., AuthContext) that auth state changed
+    window.dispatchEvent(new Event("volley:auth-changed"));
+  } catch {}
 }
 
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem(USER_KEY);
+  try {
+    window.dispatchEvent(new Event("volley:auth-changed"));
+  } catch {}
 }
 
 export function getToken() {

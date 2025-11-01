@@ -314,7 +314,8 @@ async function sendRemindersInRange(start, end) {
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const place = t.place || '—';
         const count = Array.isArray(t.participants) ? t.participants.length : 0;
-        lines.push(`• ${time} — ${place} — ${count} players`);
+        const icon = d.getUTCHours() < 15 ? '☀️' : '🌙';
+        lines.push(`${icon} ${time} — ${place} — ${count} players`);
       }
       const text = lines.join('\n');
       try {
@@ -382,7 +383,8 @@ async function notifyTestForMe(req, res) {
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const place = t.place || '—';
         const count = Array.isArray(t.participants) ? t.participants.length : 0;
-        lines.push(`• ${time} — ${place} — ${count} players`);
+        const icon = d.getUTCHours() < 15 ? '☀️' : '🌙';
+        lines.push(`${icon} ${time} — ${place} — ${count} players`);
       }
       text = lines.join('\n');
     }

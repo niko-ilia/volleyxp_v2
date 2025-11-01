@@ -57,7 +57,8 @@ export default function CoachSettingsPage() {
         ]);
         if (p.ok) {
           const pj = await p.json();
-          if (!cancelled) setTelegramLinked(Boolean(pj?.telegramChannel?.linked));
+          // Consider DM linkage (telegramId or telegramChatId) sufficient; channel link is optional
+          if (!cancelled) setTelegramLinked(Boolean(pj?.telegramId || pj?.telegramChatId || (pj?.telegramChannel && pj.telegramChannel.linked)));
         }
         if (n.ok) {
           const nj = await n.json();
